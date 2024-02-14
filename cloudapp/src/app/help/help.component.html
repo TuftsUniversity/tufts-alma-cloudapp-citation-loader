@@ -1,0 +1,35 @@
+<div class="eca-actions">
+    <button mat-flat-button color="primary" [routerLink]="['/']"><mat-icon>arrow_back</mat-icon>Back</button>
+  </div>
+  
+  <div class="title">
+    <h1 >{{ 'Help.Title' | translate }}</h1>
+  </div>
+  <div>
+    <p><strong>{{ 'Help.LookupKey' | translate }}</strong></p>
+    <p>
+    - {{ 'Help.LookupKeyDescription' | translate }}</p>
+    <p> 1) {{ 'Help.Barcode' | translate }} </p>
+    <img src="./assets/barcode.png" alt="" width="458" height="239">
+    <p></p>
+    <p> {{ 'Help.BarcodeDetails' | translate }} </p>
+
+    <p></p>
+    <p> 2) mms_id+holding_id+item_pid </p>
+    <img src="./assets/mms.png" alt="" width="710" height="287" >
+    
+    <p></p>
+
+    <p><strong>{{ 'Help.UpdateFields' | translate }}</strong></p>
+
+    <p>
+        {{ 'Help.XsdSearch' | translate }} <a translate href="https://developers.exlibrisgroup.com/alma/apis/xsd/rest_item.xsd/?tags=PUT" target="_blank"> {{ 'Help.URL' | translate }}</a> {{ 'Help.FieldNames' | translate }}</p>
+
+    <p></p>
+    <p>{{ 'Help.Example' | translate }}</p>
+    <p><strong>{{ 'Help.BlankColumn' | translate }}</strong></p>
+
+    <p><img src="./assets/example.png" alt="" width="411" height="176" /></p>
+
+    <p><a translate href="https://github.com/ExLibrisGroup/hep-CloudApp-ItemUpdater-Excel/issues" target="_blank">Open an issue</a></p>
+</div>

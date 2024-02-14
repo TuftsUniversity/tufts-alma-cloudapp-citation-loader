@@ -1,0 +1,24 @@
+{
+   "id": "Citation Loader",
+   "title": "Citation Loader",
+   "subtitle": "Create citations and reading lists from an Excel spreadsheet",
+   "author": "Henry Steele, Library Technology Services, Tufts University",
+   "icon": {
+      "type": "font",
+      "value": "fa fa-barcode"
+   },
+   "pages": {
+      "help": "/#/help"
+   },
+   "fullscreen": {
+      "allow": true,
+      "open": false
+   },
+   "contentSecurity": {
+      "sandbox": {
+         "popups": true,
+         "downloads": true,
+         "modals": true
+      }
+   }
+}

@@ -1,0 +1,31 @@
+{
+	"Main": {
+		"LoadItems": "Load Items",
+		"DragFile": "Drag a file or click to browse",
+		"Processed": "Total number of records is",
+		"Updated": "Number of updated records is",
+		"Failed": "Number of failed records is",
+		"Results":"Results",
+		"ProcessedItems": "Processed Items",
+		"Error":"Error"
+	},
+	"Reset": "Reset",
+	"Save": "Save",
+	"Settings": {
+		"Saved": "Settings successfully saved.",
+		"Title": "Settings"
+	},
+	"Help" :{
+		"Title": "Item Updater Help",
+		"LookupKey": "1. Set lookup key",
+		"LookupKeyDescription": "The lookup key can be set in two ways.",
+		"Barcode": "Barcode",
+		"BarcodeDetails": "If method 1 is selected, barcode must be placed in the leftmost column. This is because if you replace an existing barcode with a new barcode, you need two barcode columns.",
+		"UpdateFields": "2. Add fields to edit",
+		"URL" :"rest_item.xsd",
+		"XsdSearch" :"If you have entered a lookup key, search the",
+		"FieldNames" :"for the name of the field to be modified, and then insert the field name as a column label and enter a new value.",
+		"Example" :"For example, if you want to change the barcode of an item with barcode 'S0126151' to 'S0126152' and delete the temporary library, create an Excel file as shown below.",
+		"BlankColumn": "*If the column is left blank, the corresponding value is deleted."
+	}
+}

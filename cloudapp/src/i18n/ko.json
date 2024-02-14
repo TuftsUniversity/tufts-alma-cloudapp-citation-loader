@@ -1,0 +1,31 @@
+{
+	"Main": {
+		"LoadItems": "항목 로드",
+		"DragFile": "파일을 드래그하거나 클릭하여 찾아보기",
+		"Processed": "총 레코드 수:",
+		"Updated": "업데이트된 레코드 수:",
+		"Failed": "실패한 레코드 수:",
+		"Results":"결과",
+		"ProcessedItems": "가공품",
+		"Error":"오류"
+	},
+	"Reset": "초기화",
+	"Save": "구하다",
+	"Settings": {
+		"Saved": "설정이 성공적으로 저장되었습니다.",
+		"Title": "설정"
+	},
+	"Help" :{
+		"Title": "Item Updater 도움말",
+		"LookupKey": "1. 조회 키 설정",
+		"LookupKeyDescription": "조회키는 두가지 방법으로 설정이 가능합니다.",
+		"Barcode": "바코드",
+		"BarcodeDetails": "1번 방법을 선택했을 경우 가장 좌측의 컬럼에 바코드를 넣어야 합니다. 왜냐면 만약 기존 바코드를 새로운 바코드로 바꾼다면 바코드 컬럼이 두개 필요하기 때문입니다.",
+		"UpdateFields": "2. 수정할 필드 추가",
+		"URL" :"URL",
+		"XsdSearch" :"조회키를 넣으셨다면 수정할 필드명을 ",
+		"FieldNames" :"에서 조회한 후 해당 필드명으로 컬럼 라벨로 넣으신 후 새로운 값을 넣어주시면 됩니다.",
+		"Example" :"예를 들면 바코드 'S0126151' 을 가진 아이템의 바코드를 'S0126152'로 바꾸고 temporary library을 지우고 싶으시다면, 아래처럼 엑셀을 만드시면 됩니다.",
+		"BlankColumn": "*컬럼을 비워두시면 해당 값을 삭제합니다."
+	}
+}
