@@ -44,4 +44,4 @@ Defaults are assumed for the creation of reading lists and citations except the 
     - Number of error entries
 - you can also download this log
 
-https://developers.exlibrisgroup.com/appcenter/item-updater-by-excel/
+https://developers.exlibrisgroup.com/appcenter/citation-loader/
