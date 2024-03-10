@@ -422,11 +422,15 @@ getReadingList(id: any){
        "name": "${course.course[0]['code']}-${course.course[0]['section']}",
       "due_back_date": "${course.course[0]['end_date']}",
       "status": {
-        "value": "ReadyForProcessing"
+        "value": "BeingPrepared"
       },
       "publishingStatus": {
-        "value": "DRAFT"
+        "value": "PUBLISHED"
+      },
+      "visibility": {
+        "value":"RESTRICTED"
       }
+
     }`;
     return this.restService.call( {
       url: `/courses/${course.course[0]['id']}/reading-lists`,
