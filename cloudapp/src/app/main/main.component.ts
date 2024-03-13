@@ -283,6 +283,15 @@ export class MainComponent implements OnInit, OnDestroy {
 
                 }
 
+                else if(res[0][8] && !res[0][12]['pid']) {
+
+                  errorCount++;
+                  errorSummary += `error accessing physical item by barcode or updating item ${res[0][12].message}\n`
+
+
+                 
+                }
+
                 
 
                 else if(res[0][7] == true){
