@@ -27,6 +27,7 @@ export class ItemService {
   citation: any;
   almaResult: any;
   original: any;
+  item_record_update: any;
   almaReadingList: any;
   result: any;
   s = new Subject();
@@ -442,7 +443,7 @@ getReadingList(id: any){
         throw(e);
       }
     ),
-     switchMap(original=>{
+     concatMap(original=>{
        if (original==null) {
          return this.restService.call( {
       url: `/courses/${course.course[0]['id']}/reading-lists`,
@@ -450,16 +451,18 @@ getReadingList(id: any){
       headers: {"Content-Type": "application/json"},
       requestBody: readingListObj
     });
-       } else {
-        
-
-      return this.restService.call( {
-      url: `/courses/${course.course[0]['id']}/reading-lists`,
-      method: HttpMethod.GET,
-      headers: {"Content-Type": "application/json"},
-      // requestBody: readingListObj
-    })
-}
+       } else{
+        console.log("error in reading list creation")
+        const source$ = of([{ status: 200, data: course}, 'create_citation_false', { status: 200, data: `reading list creation failed for ${course}` }]);
+        return source$.pipe(
+          this.handleOtherError(response => {
+  
+                  // For non-redirects, just pass the original response through
+                  return of(response);
+              
+          })
+      )
+      }
 }),
 
 
@@ -474,7 +477,7 @@ getReadingList(id: any){
 
 }
 
-    addToList(almaReadingListId, almaCourseId, mms_id) {
+    addToList(almaReadingListId, almaCourseId, mms_id, citation_type) {
 
       this.citation = `{
         "status": {
@@ -583,10 +586,69 @@ getCitations(almaReadingListId, almaCourseId) {
 
       })
       ),
-      catchError(e=>of(this.handleError(e, mmsId, "ERror with MMS ID look up for " + mmsId)))
+      catchError(e=>of(this.handleError(e, mmsId, "Error with MMS ID look up for " + mmsId)))
       
 
      
+
+  }
+
+  updateItem(barcode: string, reserves_library: string, reserves_location: string){
+
+    console.log("got into function");
+   
+    return this.restService.call(`/items?item_barcode=${barcode}`)
+    
+    .pipe(catchError(e=>{
+      throw(e);
+    }),
+    switchMap(item => {
+      // if ('pid' in item['item_data']){
+      let url  = item['link'].replace(/.+?(\/bibs.+)/g, "$1");
+      console.log(url);
+      // console.log(JSON.stringify(item));
+      item['holding_data']['in_temp_location'] = "true";
+      item['holding_data']['temp_library']['value'] = reserves_library;
+      item['holding_data']['temp_location']['value'] = reserves_location;
+
+      item = JSON.stringify(item)
+      // item = JSON.parse(item);
+      
+      console.log(item);
+      //url= item['link'] ? item['link'].substring(item['link'].indexOf("/almaws/v1/")+10 ): url
+      
+      // if ('pid' in item['item_data']){
+        return this.restService.call( {
+          url: url,
+          requestBody: item,
+          method: HttpMethod.PUT,
+          headers: {"Content-Type": "application/json"}
+          })
+
+      // }
+
+      // else{
+      //   console.log("error with item lookup")
+      //   const source$ = of([{ status: 200, data: barcode}, 'create_citation_false', { status: 200, data: `Lookup failed for MMS ID ${barcode}` }]);
+      //   return source$.pipe(
+      //     this.handleOtherError(response => {
+  
+      //             // For non-redirects, just pass the original response through
+      //             return of(response);
+              
+      //     })
+      // )
+      // }
+
+      
+     
+
+    }),
+    catchError(e=>of(this.handleError(e, barcode, "Error with adding citation to list")))
+
+    )
+
+
 
   }
 

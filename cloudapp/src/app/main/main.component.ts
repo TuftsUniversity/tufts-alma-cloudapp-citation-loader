@@ -4,8 +4,9 @@ import { Component, OnInit, OnDestroy } from '@angular/core';
 import { RestErrorResponse } from '@exlibris/exl-cloudapp-angular-lib';
 import { TranslateService } from '@ngx-translate/core';
 import * as XLSX from 'xlsx';
-import { saveAs } from 'file-saver-es';
 import * as FileSaver from 'file-saver';
+import { saveAs } from 'file-saver-es';
+
 import { ItemService } from './item.service';
 import {JSONPath} from 'jsonpath-plus';
 
@@ -93,6 +94,10 @@ export class MainComponent implements OnInit, OnDestroy {
               let course_code = item.course_code;
               let course_id: string;
               let mms_id = item.mms_id;
+              let barcode: string = item.barcode;
+              let citation_type: string = item.citation_type;
+              let reserves_library: string = item.temporary_library;
+              let reserves_location: string = item.temporary_location;
               let response = userResult[0];  
             
               let valid = false;
@@ -104,7 +109,7 @@ export class MainComponent implements OnInit, OnDestroy {
                 reading_list_id = userResult[0].reading_list[0].id;
                 reading_list_name = userResult[0].reading_list[0].id;
                 valid = true;
-                return forkJoin([of(valid), of(userResult), of(reading_list_id), of(course_id), of(mms_id), of(course_code), this.itemService.getCitations(reading_list_id, course_id)])
+                return forkJoin([of(valid), of(userResult), of(reading_list_id), of(course_id), of(mms_id), of(course_code), this.itemService.getCitations(reading_list_id, course_id), of(barcode), of(citation_type), of(reserves_library), of(reserves_location)])
 
                               } 
                                            
@@ -112,7 +117,7 @@ export class MainComponent implements OnInit, OnDestroy {
                 
                 valid = false;
                 let dummyCitations = userResult;
-                return forkJoin([of(valid), of(userResult), of(reading_list_id), of(course_id), of(mms_id), of(course_code), of(dummyCitations)])
+                return forkJoin([of(valid), of(userResult), of(reading_list_id), of(course_id), of(mms_id), of(course_code), of(dummyCitations), of(barcode), of(citation_type), of(reserves_library), of(reserves_location)])
 
               
               }
@@ -129,7 +134,12 @@ export class MainComponent implements OnInit, OnDestroy {
             let course_id = object[3];
             let mms_id = object[4];
             let course_code = object[5];
-            let citations: any = object[6]
+            let citations: any = object[6];
+            let barcode: string = object[7];
+            let citation_type = object[8];
+            let reserves_library = object[9];
+            let reserves_location = object[10];
+
 
             let mmsIdArray = new Array();
             if (valid){
@@ -148,11 +158,11 @@ export class MainComponent implements OnInit, OnDestroy {
                 
 
                 if(!(mmsIdArray.includes(mms_id))){
-              return this.itemService.addToList(reading_list_id, course_id, mms_id).pipe(
+              return this.itemService.addToList(reading_list_id, course_id, mms_id, citation_type).pipe(
                 concatMap(response_citation => {
                   
                   let exists = false;
-                  return forkJoin([of(valid), of(userResult), of(response_citation), of(reading_list_id), of(course_id), of(mms_id), of(course_code), of(exists)]) // The response from addToList
+                  return forkJoin([of(valid), of(userResult), of(response_citation), of(reading_list_id), of(course_id), of(mms_id), of(course_code), of(exists), of(barcode), of(citation_type), of(reserves_library), of(reserves_location)]) // The response from addToList
                   //reading_list_id, // Keep the original reading_list_id
                   //course_id, // Keep the original course_id
                   //mms_id, // Keep the original mms_id
@@ -161,7 +171,7 @@ export class MainComponent implements OnInit, OnDestroy {
                 catchError(error => {
                   // Handle error, you might want to include the IDs in the error as well
                   let exists = false
-                  return forkJoin([of(valid), of(userResult), of(error), of(reading_list_id), of(course_id), of(mms_id), of(course_code), of(exists)]) // The response from addToList
+                  return forkJoin([of(valid), of(userResult), of(error), of(reading_list_id), of(course_id), of(mms_id), of(course_code), of(exists), of(barcode), of(citation_type), of(reserves_library), of(reserves_location)]) // The response from addToList
                 })
               )
             }
@@ -169,7 +179,7 @@ export class MainComponent implements OnInit, OnDestroy {
             else{
               let exists = true;
               let userResult1 = userResult;
-              return forkJoin([of(valid), of(userResult), of(userResult1), of(reading_list_id), of(course_id), of(mms_id), of(course_code), of(exists)]) // The response from addToList
+              return forkJoin([of(valid), of(userResult), of(userResult1), of(reading_list_id), of(course_id), of(mms_id), of(course_code), of(exists), of(barcode), of(citation_type), of(reserves_library), of(reserves_location)]) // The response from addToList
               
 
             }
@@ -183,14 +193,54 @@ export class MainComponent implements OnInit, OnDestroy {
           }
 
           else{
-            
+              let exists = false
               let userResult1 = userResult;
-              return forkJoin([of(valid), of(userResult), of(userResult1), of(reading_list_id), of(course_id), of(mms_id), of(course_code)]);
+              return forkJoin([of(valid), of(userResult), of(userResult1), of(reading_list_id), of(course_id), of(mms_id), of(course_code), of(exists), of(barcode), of(citation_type), of(reserves_library), of(reserves_location)]);
               
 
             
           }
           }), 
+          concatMap(object => {
+            let valid = object[0];
+            let userResult = object[1];
+            let reading_list_id  = object[2];
+            let course_id = object[3];
+            let mms_id = object[4];
+            let course_code = object[5];
+            let citations: any = object[6];
+            let exists: boolean = object[7];
+            let barcode: string = object[8];
+            let citation_type = object[9];
+            let reserves_library = object[10];
+            let reserves_location = object[11];
+            let userResult1 = userResult;
+
+
+            console.log(`${JSON.stringify(object)}`);
+            if (object[0] == true && object[7] == false && barcode ){
+              console.log("got into item barcode if statement")
+
+              return this.itemService.updateItem(barcode, reserves_library, reserves_location).pipe(
+
+                concatMap(item => {
+                  return forkJoin([of(valid), of(userResult), of(reading_list_id), of(course_id), of(mms_id), of(course_code), of(citations), of(exists), of(barcode), of(citation_type), of(reserves_library), of(reserves_location), of(item)]);
+             
+                })
+              )
+            }
+
+            else {
+              //return forkJoin([of(valid), of(userResult), of(userResult1), of(reading_list_id), of(course_id), of(mms_id), of(course_code), of(barcode), of(citation_type), of(reserves_library), of(reserves_location), of(userResult1)]);
+                return forkJoin([of(valid), of(userResult), of(reading_list_id), of(course_id), of(mms_id), of(course_code), of(citations), of(exists), of(barcode), of(citation_type), of(reserves_library), of(reserves_location),of(userResult1)]);
+
+            }
+
+
+          }
+            ),
+
+
           toArray(),
           tap(() => this.processed++),
         //Collect all results into an array
@@ -233,6 +283,8 @@ export class MainComponent implements OnInit, OnDestroy {
 
                 }
 
+                
+
                 else if(res[0][7] == true){
 
                   skippedCount++;
@@ -242,6 +294,10 @@ export class MainComponent implements OnInit, OnDestroy {
                 }
   
                 else{
+                  if ('item_data' in res[0][12]){
+                    updatedItems.push("course code: " + JSON.stringify(res[0][6])  + ", reading list ID: " + JSON.stringify(res[0][2].id) + "MMS ID: " + res[0][5] + `citation: ${JSON.stringify(res[0][2].id)} item ${res[0][12]['item_data']['pid']} with barcode ${res[0][8]} now in location ${res[0][11]} in library ${res[0][10]} \n`);
+                    successCount++;
+                  }
 
                   updatedItems.push("course code: " + JSON.stringify(res[0][6])  + ", reading list ID: " + JSON.stringify(res[0][2].id) + "MMS ID: " + res[0][5] + `citation: ${JSON.stringify(res[0][2].id)}\n`);
                   successCount++;
