@@ -120,8 +120,12 @@ private handleOtherError<T, O extends ObservableInput<any>>(
 }
   processUser(item: any, previousEntry: any, processed: number) {
     
+    let course_code = item.course_code.replace(/[\{\}"']/g, "");
+    let course_id: string;
+    let mms_id = item['MMS ID'].replace(/[\{\}"']/g, "");
+    let barcode: string = item.Barcode.replace(/[\{\}"']/g, "");
 
-    if(processed == 0 || processed > 0 && item.course_code != previousEntry[previousEntry.length - 1][4]){
+    if(processed == 0 || processed > 0 && course_code != previousEntry[previousEntry.length - 1][4]){
       // console.log(`Processed: ${processed}`);
       // console.log(`Item.course_code: ${item.course_code}`)
       // console.log(`type of item.course_code`)
@@ -138,13 +142,13 @@ private handleOtherError<T, O extends ObservableInput<any>>(
       //   console.log("first")
       // }
       
-      this.previousCourseCode = item.course_code
-      let url= `/courses?q=code~${item.course_code}`;
+      this.previousCourseCode = course_code
+      let url= `/courses?q=code~${course_code}`;
       return this.restService.call(url).pipe(
       
         
         catchError(e=>{
-            console.log(`Error in course lookup for ${item.course_code} `)
+            console.log(`Error in course lookup for ${course_code} `)
             throw(e);
           }
         ),
@@ -183,19 +187,19 @@ private handleOtherError<T, O extends ObservableInput<any>>(
           }
 
           catch {
-            console.log(`Error in course lookup for ${item.course_code} `)
-            catchError(e=>of(this.handleError(e, item, `Error with course lookup for course source of error ${item.course_code}`)))
+            console.log(`Error in course lookup for ${course_code} `)
+            catchError(e=>of(this.handleError(e, item, `Error with course lookup for course source of error ${course_code}`)))
 
           }
         }),
         concatMap(courses =>  {
           try{
          
-          return forkJoin([this.readingListLookup(courses), of(item.course_code), of(courses), of(item.mms_id)])    
+          return forkJoin([this.readingListLookup(courses), of(course_code), of(courses), of(mms_id)])    
           }
           catch{
             console.log(`Error in course lookup for ${item.course_code} `)
-            const source$ = of([{ status: 200, data: item.course_code, data2: item.mms_id}, 'error', { status: 200, data: `Course lookup for course ${item.course_code} failed.` }]);
+            const source$ = of([{ status: 200, data: course_code, data2: mms_id}, 'error', { status: 200, data: `Course lookup for course ${course_code} failed.` }]);
             return source$.pipe(
            this.handleOtherError(response => {
   
@@ -212,8 +216,8 @@ private handleOtherError<T, O extends ObservableInput<any>>(
        
           try{
             if(reading_lists[1] == "error"){
-              console.log(`Error in reading list lookup for ${item.course_code} `)
-              const source$ = of([{ status: 200, data: item.course_code}, 'error', { status: 200, data: `Lookup for course ${item.course_code} failed` }, of(item.mms_id), of(item.course_code)]);
+              console.log(`Error in reading list lookup for ${course_code} `)
+              const source$ = of([{ status: 200, data: course_code}, 'error', { status: 200, data: `Lookup for course ${course_code} failed` }, of(mms_id), of(course_code)]);
               return source$.pipe(
              this.handleOtherError(response => {
     
@@ -228,17 +232,17 @@ private handleOtherError<T, O extends ObservableInput<any>>(
             
           else if ('reading_list' in reading_lists[0]){
           if(reading_lists[0].reading_list.length == 1){
-            console.log(`1 reading list for course ${item.course_code} `)
+            console.log(`1 reading list for course ${course_code} `)
             
-            return forkJoin([of(reading_lists[0]), of(reading_lists[1]), of(reading_lists[2]), of(item.mms_id), of(item.course_code)])
+            return forkJoin([of(reading_lists[0]), of(reading_lists[1]), of(reading_lists[2]), of(mms_id), of(course_code)])
           }
 
           else if (reading_lists[0].reading_list.length > 1) {
-            console.log(`More than one reading list for ${item.course_code} `)
+            console.log(`More than one reading list for ${course_code} `)
             //catchError(e=>of(this.handleError(e, item, `More than 1 reading list for course ${item.course_code}.  Reading list assignment ambiguous`)))
             //catchError(e=>of("More than 1 reading list assignment ambiguous" + e))//this.handleError(e, item, `More than 1 reading list for course ${item.course_code}.  Reading list assignment ambiguous`)))
             //return combineLatest([of(reading_lists[0]), of(reading_lists[1]), of(reading_lists[2])]) 
-            const source$ = of([{ status: 200, data: item.course_code, data2:item.mms_id}, 'error', { status: 200, data: `More than one reading list for course ${item.course_code}.  Assignment ambiguous` }, of(item.mms_id), of(item.course_code)]);
+            const source$ = of([{ status: 200, data: item.course_code, data2:mms_id}, 'error', { status: 200, data: `More than one reading list for course ${item.course_code}.  Assignment ambiguous` }, of(item.mms_id), of(item.course_code)]);
             return source$.pipe(
            this.handleOtherError(response => {
   
@@ -251,24 +255,24 @@ private handleOtherError<T, O extends ObservableInput<any>>(
 
           else {
             console.log(`else: reading lists: ${JSON.stringify(reading_lists)}`);
-            return forkJoin([of(reading_lists[0]), of(reading_lists[1]), of(reading_lists[2]), of(item.mms_id), of(item.course_code)])
+            return forkJoin([of(reading_lists[0]), of(reading_lists[1]), of(reading_lists[2]), of(mms_id), of(course_code)])
           }
         }
           else if ('link' in reading_lists[0]){
-            console.log(`No existing reading lists for ${item.course_code}  create one`)
-            return forkJoin([this.createList(reading_lists[0], reading_lists[2]), of(reading_lists[1]), of(reading_lists[2]), of(item.mms_id), of(item.course_code)])  
+            console.log(`No existing reading lists for ${course_code}  create one`)
+            return forkJoin([this.createList(reading_lists[0], reading_lists[2]), of(reading_lists[1]), of(reading_lists[2]), of(mms_id), of(course_code)])  
           }
         }
 
           catch {
-            console.log(`error in reading list process for course ${item.course_code}`);
-            catchError(e=>of(this.handleError(e, item,`Error in chaing of course and reading list lookup for course1: ${item.course_code}`)))
+            console.log(`error in reading list process for course ${course_code}`);
+            catchError(e=>of(this.handleError(e, item,`Error in chaing of course and reading list lookup for course1: ${course_code}`)))
           }
 
       }
       
           
-          ),catchError(e=>of(this.handleError(e, item, `Error in chain of course and reading list lookup for course2: ${item.course_code} `)))
+          ),catchError(e=>of(this.handleError(e, item, `Error in chain of course and reading list lookup for course2: ${course_code} `)))
         
         
       )
@@ -597,6 +601,23 @@ getCitations(almaReadingListId, almaCourseId) {
 
     console.log("got into function");
    
+    // if (!reserves_library ||!reserves_location){
+
+    //   console.log("no location provided")
+    //   const source$ = of([{ status: 200, data: reserves_library + reserves_location}, 'no_library_or_location', { status: 200, data: `No library or location provided` }]);
+    //   return source$.pipe(
+    //     this.handleOtherError(response => {
+
+    //             // For non-redirects, just pass the original response through
+    //             return of(response);
+            
+    //     })
+    // )
+    
+
+    // }
+
+    // else {
     return this.restService.call(`/items?item_barcode=${barcode}`)
     
     .pipe(catchError(e=>{
@@ -650,7 +671,9 @@ getCitations(almaReadingListId, almaCourseId) {
 
 
 
-  }
+  //}
+
+}
 
  
 

@@ -73,6 +73,8 @@ export class MainComponent implements OnInit, OnDestroy {
         let courseIds = new Array();
         let courseId = "";
         // let updatedItems = new Array();
+        let course_code = "Course Code"
+        let mms_id = "MMS ID"
         let items: any[] =XLSX.utils.sheet_to_json(worksheet,{defval:""});
         items = items.sort((a, b) => {
           if (a.course_code < b.course_code) {
@@ -91,10 +93,10 @@ export class MainComponent implements OnInit, OnDestroy {
               // Implement your conditional logic here
               let reading_list_id: string;
               let reading_list_name: string;
-              let course_code = item.course_code;
+              let course_code = item.course_code.replace(/[\{\}"']/g, "");
               let course_id: string;
-              let mms_id = item.mms_id;
-              let barcode: string = item.barcode;
+              let mms_id = item['MMS ID'].replace(/[\{\}"']/g, "");
+              let barcode: string = item.Barcode.replace(/[\{\}"']/g, "");
               let citation_type: string = item.citation_type;
               let reserves_library: string = item.temporary_library;
               let reserves_location: string = item.temporary_location;
@@ -218,7 +220,7 @@ export class MainComponent implements OnInit, OnDestroy {
 
 
             console.log(`${JSON.stringify(object)}`);
-            if (object[0] == true && object[7] == false && barcode ){
+            if (object[0] == true && object[7] == false && barcode && reserves_library && reserves_location){
               console.log("got into item barcode if statement")
 
               return this.itemService.updateItem(barcode, reserves_library, reserves_location).pipe(
@@ -258,19 +260,22 @@ export class MainComponent implements OnInit, OnDestroy {
               let skippedSummary = '';
              
               results.forEach(res => {
+                console.log(`${JSON.stringify(res)}`)
                
                
                 
                 if(res[0][0] == false){
                   errorCount++;
-                  errorSummary += `Error for course ${res[0][6]} and MMS ID ${res[0][5]}: ${res[0][1][2].data}\n`
+                  //errorSummary += `Error for course ${res[0][6]} and MMS ID ${res[0][5]}: ${res[0][1][2].data}\n`
+
+                  errorSummary += `Error for course ${res[0][5]} ${JSON.stringify(res[0][1])}}\n`
 
                     
                 }
 
                 else if ('error' in res[0][2]){
                   errorCount++;
-                  errorSummary += `${res[0][6]} and MMS ID ${res[0][5]} ${res[0][2].message}\n`
+                  errorSummary += `Error for course ${res[0][6]} and MMS ID ${res[0][5]} ${res[0][1].message}\n`
 
                   
                 }
@@ -298,10 +303,10 @@ export class MainComponent implements OnInit, OnDestroy {
                     updatedItems.push("course code: " + JSON.stringify(res[0][6])  + ", reading list ID: " + JSON.stringify(res[0][2].id) + "MMS ID: " + res[0][5] + `citation: ${JSON.stringify(res[0][2].id)} item ${res[0][12]['item_data']['pid']} with barcode ${res[0][8]} now in location ${res[0][11]} in library ${res[0][10]} \n`);
                     successCount++;
                   }
-
+                  else{
                   updatedItems.push("course code: " + JSON.stringify(res[0][6])  + ", reading list ID: " + JSON.stringify(res[0][2].id) + "MMS ID: " + res[0][5] + `citation: ${JSON.stringify(res[0][2].id)}\n`);
                   successCount++;
-                
+                  }
                 }
                 });
 
