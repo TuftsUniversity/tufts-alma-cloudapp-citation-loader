@@ -91,9 +91,25 @@ export class MainComponent implements OnInit, OnDestroy {
               // Implement your conditional logic here
               let reading_list_id: string;
               let reading_list_name: string;
-              let course_code = item.course_code;
+              if ('course_code' in item){
+
+                let course_code = item.course_code;
+              }
+
+              else{
+
+                let course_code = item['Course Code']
+              }
+              let course_code = item;
               let course_id: string;
-              let mms_id = item.mms_id;
+              if ('mms_id' in item){
+
+                let mms_id = item.mms_id
+              }
+
+              else{
+              let mms_id = item['MMS ID'];
+              }
               let barcode: string = item.barcode;
               let citation_type: string = item.citation_type;
               let reserves_library: string = item.temporary_library;
@@ -102,25 +118,59 @@ export class MainComponent implements OnInit, OnDestroy {
             
               let valid = false;
               
-              
-              if ('reading_list' in userResult[0]) {
-                course_code = userResult[2].course[0].code;
+              if ('courses' in userResult[0]) {
+                course_code = userResult[0].courses[0].code;
                 course_id = userResult[2].course[0].id;
-                reading_list_id = userResult[0].reading_list[0].id;
-                reading_list_name = userResult[0].reading_list[0].id;
+                //reading_list_id = userResult[0].reading_list[0].id;
+                //reading_list_name = userResult[0].reading_list[0].id;
                 valid = true;
-                return forkJoin([of(valid), of(userResult), of(reading_list_id), of(course_id), of(mms_id), of(course_code), this.itemService.getCitations(reading_list_id, course_id), of(barcode), of(citation_type), of(reserves_library), of(reserves_location)])
+                return forkJoin([of(valid), of(userResult), of(userResult), of(course_id), of(mms_id), of(course_code)])//, this.itemService.getCitations(reading_list_id, course_id), of(barcode), of(citation_type), of(reserves_library), of(reserves_location)])
 
                               } 
                                            
               else{
                 
                 valid = false;
-                let dummyCitations = userResult;
-                return forkJoin([of(valid), of(userResult), of(reading_list_id), of(course_id), of(mms_id), of(course_code), of(dummyCitations), of(barcode), of(citation_type), of(reserves_library), of(reserves_location)])
+                let dummyCourse = userResult;
+                return forkJoin([of(valid), of(userResult), of(dummyCourse), of(course_id), of(mms_id), of(course_code)])//, of(dummyCitations), of(barcode), of(citation_type), of(reserves_library), of(reserves_location)])
 
               
               }
+            }),
+
+            concatMap(courses => {
+
+              
+
+              if ('courses' in courses[1]){
+                  let valid = true
+            //}
+                return forkJoin([valid, this.itemService.readingListLookup(courses), of(item.course_code), of(courses), of(item.mms_id)])
+              }
+
+
+
+             
+            // })
+              
+            //   if ('reading_list' in userResult[0]) {
+            //     course_code = userResult[2].course[0].code;
+            //     course_id = userResult[2].course[0].id;
+            //     reading_list_id = userResult[0].reading_list[0].id;
+            //     reading_list_name = userResult[0].reading_list[0].id;
+            //     valid = true;
+            //     return forkJoin([of(valid), of(userResult), of(reading_list_id), of(course_id), of(mms_id), of(course_code), this.itemService.getCitations(reading_list_id, course_id), of(barcode), of(citation_type), of(reserves_library), of(reserves_location)])
+
+            //                   } 
+                                           
+            //   else{
+                
+            //     valid = false;
+            //     let dummyCitations = userResult;
+            //     return forkJoin([of(valid), of(userResult), of(reading_list_id), of(course_id), of(mms_id), of(course_code), of(dummyCitations), of(barcode), of(citation_type), of(reserves_library), of(reserves_location)])
+
+              
+            //   }
               
               // Return the prepared data for the next step
               

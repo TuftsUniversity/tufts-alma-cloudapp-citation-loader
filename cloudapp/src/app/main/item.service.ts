@@ -187,113 +187,120 @@ private handleOtherError<T, O extends ObservableInput<any>>(
             catchError(e=>of(this.handleError(e, item, `Error with course lookup for course source of error ${item.course_code}`)))
 
           }
-        }),
-        concatMap(courses =>  {
-          try{
+        })),
+
+        concatMap(courses => {
+
+          return forkJoin([courses, of(item.course_code)])
+        })
+
+      }}
+
+
+//         concatMap(courses =>  {
+//           try{
          
-          return forkJoin([this.readingListLookup(courses), of(item.course_code), of(courses), of(item.mms_id)])    
-          }
-          catch{
-            console.log(`Error in course lookup for ${item.course_code} `)
-            const source$ = of([{ status: 200, data: item.course_code, data2: item.mms_id}, 'error', { status: 200, data: `Course lookup for course ${item.course_code} failed.` }]);
-            return source$.pipe(
-           this.handleOtherError(response => {
+//           return forkJoin([this.readingListLookup(courses), of(item.course_code), of(courses), of(item.mms_id)])    
+//           }
+//           catch{
+//             console.log(`Error in course lookup for ${item.course_code} `)
+//             const source$ = of([{ status: 200, data: item.course_code, data2: item.mms_id}, 'error', { status: 200, data: `Course lookup for course ${item.course_code} failed.` }]);
+//             return source$.pipe(
+//            this.handleOtherError(response => {
   
-                  // For non-redirects, just pass the original response through
-                  return of(response);
+//                   // For non-redirects, just pass the original response through
+//                   return of(response);
               
-          })
-      )
-          }
-        }
-          )
+//           })
+//       )
+//           }
+//         }
+//           )
         
-        , concatMap( reading_lists => {
+//         , concatMap( reading_lists => {
        
-          try{
-            if(reading_lists[1] == "error"){
-              console.log(`Error in reading list lookup for ${item.course_code} `)
-              const source$ = of([{ status: 200, data: item.course_code}, 'error', { status: 200, data: `Lookup for course ${item.course_code} failed` }, of(item.mms_id), of(item.course_code)]);
-              return source$.pipe(
-             this.handleOtherError(response => {
+//           try{
+//             if(reading_lists[1] == "error"){
+//               console.log(`Error in reading list lookup for ${item.course_code} `)
+//               const source$ = of([{ status: 200, data: item.course_code}, 'error', { status: 200, data: `Lookup for course ${item.course_code} failed` }, of(item.mms_id), of(item.course_code)]);
+//               return source$.pipe(
+//              this.handleOtherError(response => {
     
-                    // For non-redirects, just pass the original response through
-                    return of(response);
+//                     // For non-redirects, just pass the original response through
+//                     return of(response);
                 
-            })
-              )
+//             })
+//               )
   
-            }
+//             }
             
             
-          else if ('reading_list' in reading_lists[0]){
-          if(reading_lists[0].reading_list.length == 1){
-            console.log(`1 reading list for course ${item.course_code} `)
+//           else if ('reading_list' in reading_lists[0]){
+//           if(reading_lists[0].reading_list.length == 1){
+//             console.log(`1 reading list for course ${item.course_code} `)
             
-            return forkJoin([of(reading_lists[0]), of(reading_lists[1]), of(reading_lists[2]), of(item.mms_id), of(item.course_code)])
-          }
+//             return forkJoin([of(reading_lists[0]), of(reading_lists[1]), of(reading_lists[2]), of(item.mms_id), of(item.course_code)])
+//           }
 
-          else if (reading_lists[0].reading_list.length > 1) {
-            console.log(`More than one reading list for ${item.course_code} `)
-            //catchError(e=>of(this.handleError(e, item, `More than 1 reading list for course ${item.course_code}.  Reading list assignment ambiguous`)))
-            //catchError(e=>of("More than 1 reading list assignment ambiguous" + e))//this.handleError(e, item, `More than 1 reading list for course ${item.course_code}.  Reading list assignment ambiguous`)))
-            //return combineLatest([of(reading_lists[0]), of(reading_lists[1]), of(reading_lists[2])]) 
-            const source$ = of([{ status: 200, data: item.course_code, data2:item.mms_id}, 'error', { status: 200, data: `More than one reading list for course ${item.course_code}.  Assignment ambiguous` }, of(item.mms_id), of(item.course_code)]);
-            return source$.pipe(
-           this.handleOtherError(response => {
+//           else if (reading_lists[0].reading_list.length > 1) {
+//             console.log(`More than one reading list for ${item.course_code} `)
+           
+//             const source$ = of([{ status: 200, data: item.course_code, data2:item.mms_id}, 'error', { status: 200, data: `More than one reading list for course ${item.course_code}.  Assignment ambiguous` }, of(item.mms_id), of(item.course_code)]);
+//             return source$.pipe(
+//            this.handleOtherError(response => {
   
-                  // For non-redirects, just pass the original response through
-                  return of(response);
+//                   // For non-redirects, just pass the original response through
+//                   return of(response);
               
-          })
-      )
-          }
+//           })
+//       )
+//           }
 
-          else {
-            console.log(`else: reading lists: ${JSON.stringify(reading_lists)}`);
-            return forkJoin([of(reading_lists[0]), of(reading_lists[1]), of(reading_lists[2]), of(item.mms_id), of(item.course_code)])
-          }
-        }
-          else if ('link' in reading_lists[0]){
-            console.log(`No existing reading lists for ${item.course_code}  create one`)
-            return forkJoin([this.createList(reading_lists[0], reading_lists[2]), of(reading_lists[1]), of(reading_lists[2]), of(item.mms_id), of(item.course_code)])  
-          }
-        }
+//           else {
+//             console.log(`else: reading lists: ${JSON.stringify(reading_lists)}`);
+//             return forkJoin([of(reading_lists[0]), of(reading_lists[1]), of(reading_lists[2]), of(item.mms_id), of(item.course_code)])
+//           }
+//         }
+//           else if ('link' in reading_lists[0]){
+//             console.log(`No existing reading lists for ${item.course_code}  create one`)
+//             return forkJoin([this.createList(reading_lists[0], reading_lists[2]), of(reading_lists[1]), of(reading_lists[2]), of(item.mms_id), of(item.course_code)])  
+//           }
+//         }
 
-          catch {
-            console.log(`error in reading list process for course ${item.course_code}`);
-            catchError(e=>of(this.handleError(e, item,`Error in chaing of course and reading list lookup for course1: ${item.course_code}`)))
-          }
+//           catch {
+//             console.log(`error in reading list process for course ${item.course_code}`);
+//             catchError(e=>of(this.handleError(e, item,`Error in chaing of course and reading list lookup for course1: ${item.course_code}`)))
+//           }
 
-      }
+//       }
       
           
-          ),catchError(e=>of(this.handleError(e, item, `Error in chain of course and reading list lookup for course2: ${item.course_code} `)))
+//           ),catchError(e=>of(this.handleError(e, item, `Error in chain of course and reading list lookup for course2: ${item.course_code} `)))
         
         
-      )
+//       )
       
         
 
-    }
+//     }
 
-    else{
-      console.log("Successfully skipped\n\n\n\n")
-      const source$ = of(previousEntry[previousEntry.length -1])
-    return source$.pipe(
-      this.handleOtherNonError(response => {
+//     else{
+//       console.log("Successfully skipped\n\n\n\n")
+//       const source$ = of(previousEntry[previousEntry.length -1])
+//     return source$.pipe(
+//       this.handleOtherNonError(response => {
 
-             // For non-redirects, just pass the original response through
-             return of(response);
+//              // For non-redirects, just pass the original response through
+//              return of(response);
          
-     })
- )
-    }
+//      })
+//  )
+//     }
    
    
 
 
-}
+// }
 
 private isRestErrorResponse = (object: any): object is RestErrorResponse => 'error' in object;
 
