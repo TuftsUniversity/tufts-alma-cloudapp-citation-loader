@@ -131,6 +131,8 @@ private handleOtherError<T, O extends ObservableInput<any>>(
 
       course_code = item['Course Code'].replace(/[\{\}"']/g, "");
     }
+
+    
     
     
     if ('mms_id' in item){
@@ -142,40 +144,54 @@ private handleOtherError<T, O extends ObservableInput<any>>(
       mms_id = item['MMS ID'].replace(/[\{\}"']/g, "");
     }
 
+    let course_section: string;
+    let course_code_and_section: string;
+    let course_code_and_section_url: string;
+    if ('course_section' in item){
+      course_section = item.course_section;
+      course_code_and_section = course_code + "-" + course_section;
+      course_code_and_section_url = `/courses?q=code~${course_code}%20AND%20section~${course_section}`;
+    }
+
+    else if ('Course Section' in item){
+      course_section = item['Course Section'];
+      course_code_and_section = course_code + "-" + course_section;
+      course_code_and_section_url = `/courses?q=code~${course_code}%20AND%20section~${course_section}`;
+
+    }
+
+    else{
+
+      course_code_and_section_url = `/courses?q=code~${course_code}`;
+    }
+
+
     let previous_course_code: string;
+    let previous_course_section: string;
+    let previous_course_code_and_section: string;
 
     if (previousEntry.length > 1){
     if ('course' in previousEntry[previousEntry.length - 1]){
       console.log(`previous course code: ${JSON.stringify(previousEntry[previousEntry.length - 1].course[0]['code'])}`)
       previous_course_code = previousEntry[previousEntry.length - 1].course[0]['code']
+      previous_course_section = previousEntry[previousEntry.length - 1].course[0]['section']
+      previous_course_code_and_section = previous_course_code + "-" + previous_course_section;
     }
+
+    else{}
   }
 
-    
-    if(processed == 0 || processed > 0 && course_code != previous_course_code){
-      // console.log(`Processed: ${processed}`);
-      // console.log(`Item.course_code: ${item.course_code}`)
-      // console.log(`type of item.course_code`)
-      // console.log(`typeof previousEntry: ${typeof item.course_code}`);
-      // console.log(`previous entry: ${previousEntry}`)
-      // console.log()
-      // try{
-      //   console.log(`typeof previousEntry: ${typeof previousEntry}`);
-      //   console.log(`typeof previousEntry: ${typeof previousEntry[previousEntry.length - 1][4]}`);
-      //   console.log(`previous entry course code: ${JSON.stringify(previousEntry[previousEntry.length - 1][4])}`)
-      // }
-      // catch{
+  
+    if(processed == 0 || processed > 0 && course_code_and_section != previous_course_code_and_section){
 
-      //   console.log("first")
-      // }
       
-      this.previousCourseCode = course_code
-      let url= `/courses?q=code~${course_code}`;
+      
+      let url= course_code_and_section_url;
       return this.restService.call(url).pipe(
       
         
         catchError(e=>{
-            console.log(`Error in course lookup for ${course_code} `)
+            console.log(`Error in course lookup for ${course_code_and_section} `)
             throw(e);
           }
         ),
@@ -214,7 +230,7 @@ private handleOtherError<T, O extends ObservableInput<any>>(
           }
 
           catch {
-            console.log(`Error in course lookup for ${item.course_code} `)
+            console.log(`Error in course lookup for ${course_code_and_section} `)
             catchError(e=>of(this.handleError(e, item, `Error with course lookup for course source of error ${item.course_code}`)))
 
           }
@@ -294,9 +310,10 @@ readingListLookup(course: any, course_code: any, course_id: any, previousReading
       console.log(`Course code: ${course_code}`);
       console.log(`previous reading list course code: ${previousReadingListCourseCode[previousReadingListCourseCode.length -1]}`)
 
-      if(processed == 0 || processed > 0 && course_code != previousReadingListCourseCode[previousReadingListCourseCode.length -1]){
+  if(processed == 0 || processed > 0 && course_code != previousReadingListCourseCode[previousReadingListCourseCode.length -1]){
 
-return this.restService.call(url).pipe(
+
+    return this.restService.call(url).pipe(
 
 //   catchError(e=>{
 //     console.log(`Error in reading list lookup for ${course[1].course[0]['code']} `)
@@ -549,7 +566,26 @@ getReadingList(id: any){
 
 }
 
-    addToList(almaReadingListId, almaCourseId, mms_id, citation_type) {
+    addToList(almaReadingListId: string, almaCourseId: string, mms_id, citation_type: string, reading_list_section: string) {
+
+      let type: string = "BK";
+      let section: string = "Resources";
+      if (citation_type){
+
+        if (citation_type != ""){
+          type = citation_type;
+        }
+      }
+
+
+      if (reading_list_section){
+
+        if (reading_list_section != ""){
+
+          section = reading_list_section;
+        }
+      }
+
 
       this.citation = `{
         "status": {
@@ -559,12 +595,19 @@ getReadingList(id: any){
           "value": "NOTREQUIRED"
         },
         "type": {
-          "value": "BK"
+          "value": "${type}"
         },
         "metadata": {
           "mms_id": "${mms_id}"
+        },
+        "section_info":{
+          "name": "${section}", "visibility": "true"
         }
       }`
+
+  
+
+
       //Add to reading list in Alma
       return this.restService.call(`/bibs/${mms_id}`).pipe(catchError(e=>{
         throw(e);
