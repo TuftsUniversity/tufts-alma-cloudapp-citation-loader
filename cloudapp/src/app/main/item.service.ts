@@ -594,9 +594,7 @@ getReadingList(id: any){
         "copyrights_status": {
           "value": "NOTREQUIRED"
         },
-        "type": {
-          "value": "${type}"
-        },
+    
         "metadata": {
           "mms_id": "${mms_id}"
         },

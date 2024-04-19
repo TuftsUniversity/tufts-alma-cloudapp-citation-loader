@@ -20,6 +20,7 @@ export class MainComponent implements OnInit, OnDestroy {
   files: File[] = [];
   previousCourseEntry = new Array();
   previousReadingListEntry  = new Array();
+  completeArray = new Array();
   // this has the same value as the course code but is used for tracking
   // reading lists, if they are the same as the previous so processing can be skipped
   previousReadingListCode = new Array();
@@ -28,6 +29,7 @@ export class MainComponent implements OnInit, OnDestroy {
   courseProcessed = 0;
   rLProcessed = 0;
   resultMessage = '';
+
   courseMMSIdInput = '';
   course_code = "";
   courses: any;
@@ -514,8 +516,27 @@ export class MainComponent implements OnInit, OnDestroy {
   
                 else{
                   if (res[0][10] == true){
+                    
                     updatedItems.push("course code: " + JSON.stringify(res[0][5])  + ", reading list: " + JSON.stringify(res[0][2].reading_list[0].name) + ", section: " + JSON.stringify(res[0][12]) + ", MMS ID: " + res[0][4] + `citation: ${JSON.stringify(res[0][3].id)} - Item with barcode ${res[0][7]} now in location ${res[0][9]} in library ${res[0][8]} \n`);
                     successCount++;
+                    
+
+
+                  }
+
+                  else if (res[0][8] && res[0][9] && res[0][10] == false){
+                    if (res[0][8] != "" && res[0][9] != ""){
+                      errorCount++;
+                      errorSummary += `Error moving physical items for course ${res[0][5]} and MMS ID ${res[0][4]} to library ${res[0][8]} and location ${res[0][9]}\n`
+
+
+                    }
+
+                    else{
+                      updatedItems.push("course code: " + JSON.stringify(res[0][5])  + ", reading list: " + JSON.stringify(res[0][2].reading_list[0].name) + ", section: " + JSON.stringify(res[0][12])+ ", MMS ID: " + res[0][4] + `citation: ${JSON.stringify(res[0][3].id)}\n`);
+                      successCount++;
+                    }
+
                   }
                   else{
                   updatedItems.push("course code: " + JSON.stringify(res[0][5])  + ", reading list: " + JSON.stringify(res[0][2].reading_list[0].name) + ", section: " + JSON.stringify(res[0][12])+ ", MMS ID: " + res[0][4] + `citation: ${JSON.stringify(res[0][3].id)}\n`);
