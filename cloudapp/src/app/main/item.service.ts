@@ -118,7 +118,7 @@ private handleOtherError<T, O extends ObservableInput<any>>(
   });
 
 }
-  processUser(item: any, previousEntry: any, processed: number) {
+  processUser(item: any, previousEntry: any, previousCode: any, processed: number) {
     
     let course_code:string;
     let mms_id: string;
@@ -166,19 +166,19 @@ private handleOtherError<T, O extends ObservableInput<any>>(
     }
 
 
-    let previous_course_code: string;
-    let previous_course_section: string;
+    //let previous_course_code: string;
+    //let previous_course_section: string;
     let previous_course_code_and_section: string;
 
     if (previousEntry.length > 1){
-    if ('course' in previousEntry[previousEntry.length - 1]){
-      console.log(`previous course code: ${JSON.stringify(previousEntry[previousEntry.length - 1].course[0]['code'])}`)
-      previous_course_code = previousEntry[previousEntry.length - 1].course[0]['code']
-      previous_course_section = previousEntry[previousEntry.length - 1].course[0]['section']
-      previous_course_code_and_section = previous_course_code + "-" + previous_course_section;
-    }
+    //if ('course' in previousEntry[previousEntry.length - 1]){
+     // console.log(`previous course code: ${JSON.stringify(previousEntry[previousEntry.length - 1].course[0]['code'])}`)
+      previous_course_code_and_section = previousCode[previousCode.length - 1]
+      //previous_course_section = previousEntry[previousEntry.length - 1].course[0]['section']
+      //previous_course_code_and_section = previous_course_code + "-" + previous_course_section;
+    //}
 
-    else{}
+    //else{}
   }
 
   
@@ -594,7 +594,14 @@ getReadingList(id: any){
         "copyrights_status": {
           "value": "NOTREQUIRED"
         },
-    
+         "type": {
+           "value": "BK"
+         },
+
+         "secondary_type" : {
+
+          "value": "${type}"
+         },
         "metadata": {
           "mms_id": "${mms_id}"
         },

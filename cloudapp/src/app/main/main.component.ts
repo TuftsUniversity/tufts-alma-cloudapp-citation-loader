@@ -24,6 +24,7 @@ export class MainComponent implements OnInit, OnDestroy {
   // this has the same value as the course code but is used for tracking
   // reading lists, if they are the same as the previous so processing can be skipped
   previousReadingListCode = new Array();
+  previousCourseCode = new Array();
   loading = false;
   arrayBuffer:any;
   courseProcessed = 0;
@@ -93,8 +94,9 @@ export class MainComponent implements OnInit, OnDestroy {
         let count = 0;
         // this.previousEntry.push(["0","0","0","0"]);
         from(items).pipe(
-          concatMap(item => this.itemService.processUser(item, this.previousCourseEntry, this.courseProcessed).pipe(
+          concatMap(item => this.itemService.processUser(item, this.previousCourseEntry, this.previousCourseCode, this.courseProcessed).pipe(
             tap((userResult) => this.previousCourseEntry.push(userResult)),
+            
             concatMap(userResult => {
               //console.log(`${JSON.stringify(this.previousCourseEntry)}`)
               // Implement your conditional logic here
@@ -222,7 +224,7 @@ export class MainComponent implements OnInit, OnDestroy {
               
               }
             }),
-
+            tap((courses) => {this.previousCourseCode.push(courses[5])}),
             concatMap(courses => {
 
               
@@ -260,7 +262,7 @@ export class MainComponent implements OnInit, OnDestroy {
             
             }),
           tap((reading_list_object) => {
- 
+            console.log(JSON.stringify(reading_list_object[5]))
             this.previousReadingListCode.push(reading_list_object[5])
           
 
@@ -269,7 +271,7 @@ export class MainComponent implements OnInit, OnDestroy {
             concatMap(reading_list => {
               let reading_list_object = reading_list[2]
               
-              console.log(this.previousReadingListEntry[this.previousReadingListEntry.length  -1]);
+              console.log(JSON.stringify(this.previousReadingListEntry))//[this.previousReadingListEntry.length  -1]);
               //console.log(JSON.stringify(reading_list))
               let valid = reading_list[0]
               let courses = reading_list[1]
@@ -458,6 +460,11 @@ export class MainComponent implements OnInit, OnDestroy {
               results.forEach(res => {
                 //console.log(`${JSON.stringify(res)}`)
                
+                let reading_list_section: string = "Resources";
+                    if(res[0][12]){
+
+                      reading_list_section = res[0][12];
+                    }
                
                 
                 if(res[0][0] == false){
@@ -517,7 +524,7 @@ export class MainComponent implements OnInit, OnDestroy {
                 else{
                   if (res[0][10] == true){
                     
-                    updatedItems.push("course code: " + JSON.stringify(res[0][5])  + ", reading list: " + JSON.stringify(res[0][2].reading_list[0].name) + ", section: " + JSON.stringify(res[0][12]) + ", MMS ID: " + res[0][4] + `citation: ${JSON.stringify(res[0][3].id)} - Item with barcode ${res[0][7]} now in location ${res[0][9]} in library ${res[0][8]} \n`);
+                    updatedItems.push("course code: " + JSON.stringify(res[0][5])  + ", reading list: " + JSON.stringify(res[0][2].reading_list[0].name) + ", section: " + JSON.stringify(reading_list_section) + ", MMS ID: " + res[0][4] + `citation: ${JSON.stringify(res[0][3].id)} - Item with barcode ${res[0][7]} now in location ${res[0][9]} in library ${res[0][8]} \n`);
                     successCount++;
                     
 
@@ -562,6 +569,7 @@ export class MainComponent implements OnInit, OnDestroy {
                 if(skippedSummary){
                   this.log(`Skipped: \n${skippedSummary}`);
                 }
+                
                 if(updatedItems){
                   this.log(`${this.translate.instant("Main.ProcessedItems")}:\n ${updatedItems.join(", ")}`);
                 }
