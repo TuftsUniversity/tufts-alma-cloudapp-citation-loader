@@ -540,7 +540,7 @@ export class MainComponent implements OnInit, OnDestroy {
                     }
 
                     else{
-                      updatedItems.push("course code: " + JSON.stringify(res[0][5])  + ", reading list: " + JSON.stringify(res[0][2].reading_list[0].name) + ", section: " + JSON.stringify(res[0][12])+ ", MMS ID: " + res[0][4] + `citation: ${JSON.stringify(res[0][3].id)}\n`);
+                      updatedItems.push("course code: " + JSON.stringify(res[0][5])  + ", reading list: " + JSON.stringify(res[0][2].reading_list[0].name) + ", section: " + JSON.stringify(reading_list_section)+ ", MMS ID: " + res[0][4] + `citation: ${JSON.stringify(res[0][3].id)}\n`);
                       successCount++;
                     }
 
@@ -569,7 +569,7 @@ export class MainComponent implements OnInit, OnDestroy {
                 if(skippedSummary){
                   this.log(`Skipped: \n${skippedSummary}`);
                 }
-                
+
                 if(updatedItems){
                   this.log(`${this.translate.instant("Main.ProcessedItems")}:\n ${updatedItems.join(", ")}`);
                 }
