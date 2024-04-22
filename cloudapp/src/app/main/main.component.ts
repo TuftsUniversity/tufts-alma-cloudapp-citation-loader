@@ -1,7 +1,7 @@
 import { from, of, combineLatest, Observable, iif, forkJoin } from 'rxjs';
 import { tap , concatMap, switchMap, flatMap, toArray, mergeAll, map, catchError, finalize, mergeMap} from 'rxjs/operators';
 import { Component, OnInit, OnDestroy } from '@angular/core';
-import { RestErrorResponse } from '@exlibris/exl-cloudapp-angular-lib';
+import { RestErrorResponse, CloudAppRestService, HttpMethod } from '@exlibris/exl-cloudapp-angular-lib';
 import { TranslateService } from '@ngx-translate/core';
 import * as XLSX from 'xlsx';
 import * as FileSaver from 'file-saver';
@@ -18,8 +18,10 @@ import {JSONPath} from 'jsonpath-plus';
 })
 export class MainComponent implements OnInit, OnDestroy {
   files: File[] = [];
+  counter: number = 0;
   previousCourseEntry = new Array();
   previousReadingListEntry  = new Array();
+  uniqueCompletedReadingLists = new Array();
   completeArray = new Array();
   // this has the same value as the course code but is used for tracking
   // reading lists, if they are the same as the previous so processing can be skipped
@@ -41,6 +43,7 @@ export class MainComponent implements OnInit, OnDestroy {
   constructor(
     private itemService: ItemService,
     private translate: TranslateService,
+    private restService: CloudAppRestService,
     
     
   ) { }
@@ -94,6 +97,7 @@ export class MainComponent implements OnInit, OnDestroy {
         let count = 0;
         // this.previousEntry.push(["0","0","0","0"]);
         from(items).pipe(
+    
           concatMap(item => this.itemService.processUser(item, this.previousCourseEntry, this.previousCourseCode, this.courseProcessed).pipe(
             tap((userResult) => this.previousCourseEntry.push(userResult)),
             
@@ -225,6 +229,12 @@ export class MainComponent implements OnInit, OnDestroy {
               }
             }),
             tap((courses) => {this.previousCourseCode.push(courses[5])}),
+            tap((courses) => {this.completeArray.push(courses)}),
+            tap((courses =>  {
+              console.log(JSON.stringify(this.completeArray));
+              
+              }
+            )),
             concatMap(courses => {
 
               
@@ -259,11 +269,13 @@ export class MainComponent implements OnInit, OnDestroy {
               console.log(JSON.stringify(this.previousReadingListEntry))
               console.log(JSON.stringify(this.previousReadingListCode))
               this.previousReadingListEntry.push(reading_list_object[2])
+              
             
             }),
           tap((reading_list_object) => {
             console.log(JSON.stringify(reading_list_object[5]))
             this.previousReadingListCode.push(reading_list_object[5])
+           
           
 
             
@@ -297,6 +309,7 @@ export class MainComponent implements OnInit, OnDestroy {
               else{
                 
                 
+                
                 let reading_list_valid = false;
                 let dummyCitations = courses
                 return forkJoin([of(valid), of(courses), of(reading_list_object), of(course_id), of(mms_id), of(course_code_and_section), of(dummyCitations), of(barcode), of(reserves_library), of(reserves_location) , of(citation_type), of(reading_list_valid), of(reading_list_section)])
@@ -309,7 +322,20 @@ export class MainComponent implements OnInit, OnDestroy {
             }),
              
           
+            tap((object) => {
+              let reading_list_id: string;
+
+              try{
+
+                reading_list_id = object[2]['reading_list'][0]['id'];
+              }
+
+              catch{
+                reading_list_id = "";
+              }
+      
             
+            }),
             concatMap(object => {
             
             let valid = object[0];
@@ -328,6 +354,7 @@ export class MainComponent implements OnInit, OnDestroy {
 
 
             let mmsIdArray = new Array();
+            let add_item_valid: boolean;
           if (valid && reading_list_valid){
 
               if ('citation' in citations){
@@ -341,31 +368,35 @@ export class MainComponent implements OnInit, OnDestroy {
                 }
               })
             }
-                
+              
+           
 
             if(!(mmsIdArray.includes(mms_id))){
               return this.itemService.addToList(reading_list_object['reading_list'][0]['id'], course_id, mms_id, citation_type, reading_list_section).pipe(
                 concatMap(response_citation => {
-                  
+                  add_item_valid = false;
                   let exists = false;
-                  return forkJoin([of(valid), of(courses), of(reading_list_object), of(response_citation), of(mms_id), of(course_code_and_section), of(exists), of(barcode), of(reserves_library), of(reserves_location), of(citation_type), of(reading_list_valid), of(reading_list_section)]) // The response from addToList
+                  return forkJoin([of(valid), of(courses), of(reading_list_object), of(response_citation), of(mms_id), of(course_code_and_section), of(exists), of(barcode), of(reserves_library), of(reserves_location), of(citation_type), of(reading_list_valid), of(reading_list_section), of(add_item_valid)]) // The response from addToList
                   //reading_list_id, // Keep the original reading_list_id
                   //course_id, // Keep the original course_id
                   //mms_id, // Keep the original mms_id
                   //course_code
+
               }),
                 catchError(error => {
                   // Handle error, you might want to include the IDs in the error as well
-                  let exists = false
-                  return forkJoin([of(valid), of(courses), of(reading_list_object), of(error), of(mms_id), of(course_code_and_section), of(exists), of(barcode), of(reserves_library), of(reserves_location), of(citation_type), of(reading_list_valid), of(reading_list_section) ]) // The response from addToList
+                  let exists = false;
+                  add_item_valid = false;
+                  return forkJoin([of(valid), of(courses), of(reading_list_object), of(error), of(mms_id), of(course_code_and_section), of(exists), of(barcode), of(reserves_library), of(reserves_location), of(citation_type), of(reading_list_valid), of(reading_list_section), of(add_item_valid) ]) // The response from addToList
                 })
               )
             }
 
             else{
               let exists = true;
+              add_item_valid = true;
               let userResult1 = object;
-              return forkJoin([of(valid), of(courses), of(reading_list_object), of(citations), of(mms_id), of(course_code_and_section), of(exists), of(barcode), of(reserves_library), of(reserves_location), of(citation_type), of(reading_list_valid), of(reading_list_section)]) // The response from addToList
+              return forkJoin([of(valid), of(courses), of(reading_list_object), of(citations), of(mms_id), of(course_code_and_section), of(exists), of(barcode), of(reserves_library), of(reserves_location), of(citation_type), of(reading_list_valid), of(reading_list_section), of(add_item_valid)]) // The response from addToList
               
 
             }
@@ -379,14 +410,16 @@ export class MainComponent implements OnInit, OnDestroy {
           }
 
           else{
+            add_item_valid = false;
               let exists = false
               let userResult1 = object;
-              return forkJoin([of(valid), of(courses), of(reading_list_object), of(citations), of(mms_id), of(course_code_and_section), of(exists), of(barcode), of(reserves_library), of(reserves_location),  of(citation_type), of(reading_list_valid), of(reading_list_section)]);
+              return forkJoin([of(valid), of(courses), of(reading_list_object), of(citations), of(mms_id), of(course_code_and_section), of(exists), of(barcode), of(reserves_library), of(reserves_location),  of(citation_type), of(reading_list_valid), of(reading_list_section), of(add_item_valid)]);
               
 
             
           }
           }), 
+         
           concatMap(object => {
             //console.log(JSON.stringify(object));
             let valid = object[0];
@@ -401,10 +434,18 @@ export class MainComponent implements OnInit, OnDestroy {
             //let citation_type = object[8];
             let reserves_library = object[8];
             let reserves_location = object[9];
-            let citation_type = object[10];
-            let reading_list_valid = object[11]
-            let reading_list_section = object[12]
+        
+            let reading_list_valid = object[11];
+            let reading_list_section = object[12];
+            let add_item_valid = object[13];
             let item_move_valid: boolean = false;
+            let moveable: boolean;
+
+            if(reserves_library && reserves_location){
+              moveable = true;
+            }
+
+            else{moveable = false}
 
 
            //console.log(`${JSON.stringify(object)}`);
@@ -417,12 +458,12 @@ export class MainComponent implements OnInit, OnDestroy {
                   
                   if ('error' in item){
                     item_move_valid = false;
-                    return forkJoin([of(valid), of(courses), of(reading_list_object), of(citations), of(mms_id), of(course_code_and_section), of(exists), of(barcode), of(reserves_library), of(reserves_location), of(item_move_valid), of(reading_list_valid), of(reading_list_section)]);
+                    return forkJoin([of(valid), of(courses), of(reading_list_object), of(citations), of(mms_id), of(course_code_and_section), of(exists), of(barcode), of(reserves_library), of(reserves_location), of(item_move_valid), of(reading_list_valid), of(reading_list_section), of(add_item_valid), of(moveable)]);
 
                   }
                   else{
                     item_move_valid = true;
-                  return forkJoin([of(valid), of(courses), of(reading_list_object), of(citations), of(mms_id), of(course_code_and_section), of(exists), of(barcode), of(reserves_library), of(reserves_location), of(item_move_valid), of(reading_list_valid), of(reading_list_section)]);
+                  return forkJoin([of(valid), of(courses), of(reading_list_object), of(citations), of(mms_id), of(course_code_and_section), of(exists), of(barcode), of(reserves_library), of(reserves_location), of(item_move_valid), of(reading_list_valid), of(reading_list_section), of(add_item_valid), of(moveable)]);
                   }
                 })
               )
@@ -430,33 +471,46 @@ export class MainComponent implements OnInit, OnDestroy {
 
             else {
               //return forkJoin([of(valid), of(userResult), of(userResult1), of(reading_list_id), of(course_id), of(mms_id), of(course_code), of(barcode), of(citation_type), of(reserves_library), of(reserves_location), of(userResult1)]);
-                return forkJoin([of(valid), of(courses), of(reading_list_object), of(citations), of(mms_id), of(course_code_and_section), of(exists), of(barcode), of(reserves_library), of(reserves_location), of(item_move_valid), of(reading_list_valid), of(reading_list_section)]);
+                return forkJoin([of(valid), of(courses), of(reading_list_object), of(citations), of(mms_id), of(course_code_and_section), of(exists), of(barcode), of(reserves_library), of(reserves_location), of(item_move_valid), of(reading_list_valid), of(reading_list_section), of(moveable)]);
 
             }
 
 
           }
             ),
+           
 
           
           toArray(),
-          
+         
+        
           tap(() => this.courseProcessed++),
           tap(() => this.rLProcessed++)
         //Collect all results into an array
           
-          )))
-        // s.pipe(mergeMap(obs=>obs, 1))
+        )))
+       
+          
+         
+
+          
+        
         .subscribe({
+          
           next: result => results.push(result),
           complete: () => {
+            
             setTimeout(() => {
-             
+              
+              var that = this;
               let successCount = 0, errorCount = 0, skippedCount = 0; 
               let updatedItems = new Array();
+              let nonCompletedReadingLists = new Array();
+              
+              let completedList = new Array();
               let errorSummary = '';
               let skippedSummary = '';
-             
+             console.log(JSON.stringify(results))
               results.forEach(res => {
                 //console.log(`${JSON.stringify(res)}`)
                
@@ -472,7 +526,7 @@ export class MainComponent implements OnInit, OnDestroy {
                   //errorSummary += `Error for course ${res[0][6]} and MMS ID ${res[0][5]}: ${res[0][1][2].data}\n`
 
                   errorSummary += `Error for course ${res[0][5]}\n`
-
+                  nonCompletedReadingLists.push(res[0][5]);
                     
                 }
 
@@ -483,7 +537,7 @@ export class MainComponent implements OnInit, OnDestroy {
                     if (res[0][2][1] == "more_than_one_reading_list"){
                       errorCount++;
                       errorSummary += `More than one reading list for course ${res[0][5]} and MMS ID ${res[0][4]}\n`
-    
+                      nonCompletedReadingLists.push(res[0][5]);
                     }
 
 
@@ -492,7 +546,7 @@ export class MainComponent implements OnInit, OnDestroy {
                   else{
                   errorCount++;
                   errorSummary += `Error in reading list for course ${res[0][5]} and MMS ID ${res[0][4]} ${res[0][2].message}\n`
-
+                  nonCompletedReadingLists.push(res[0][5]);
                   }
                 }
 
@@ -506,7 +560,7 @@ export class MainComponent implements OnInit, OnDestroy {
 
                   errorCount++;
                   errorSummary += `Bad MMS ID for course ${res[0][5]} and MMS ID ${res[0][4]} : ${res[0][3].message}\n`
-
+                  nonCompletedReadingLists.push(res[0][5]);
 
 
                 }
@@ -535,7 +589,7 @@ export class MainComponent implements OnInit, OnDestroy {
                     if (res[0][8] != "" && res[0][9] != ""){
                       errorCount++;
                       errorSummary += `Error moving physical items for course ${res[0][5]} and MMS ID ${res[0][4]} to library ${res[0][8]} and location ${res[0][9]}\n`
-
+                      nonCompletedReadingLists.push(res[0][5]);
 
                     }
 
@@ -552,6 +606,73 @@ export class MainComponent implements OnInit, OnDestroy {
                 }
                 });
 
+
+
+
+                  //   let dataArray = [
+                  //     {1: {course_identifier: "C101", valid: false, reading_list_valid: true, add_item_valid: true, moveable: false, item_move_valid: false}},
+                  //     {2: {course_identifier: "C102", valid: true, reading_list_valid: false, add_item_valid: true, moveable: true, item_move_valid: true}},
+                  //     {3: {course_identifier: "C103", valid: true, reading_list_valid: true, add_item_valid: true, moveable: false, item_move_valid: false}},
+                  //     // more objects...
+                  // ];
+                  
+                  
+    
+        
+                  let uniqueNonComplete = nonCompletedReadingLists.filter((item, i, ar) => ar.indexOf(item) === i);
+                  
+
+                  results.forEach(res => {
+
+                    if (!(res[0][5] in uniqueNonComplete)){
+                      console.log(`/courses/${res[0][1].course[0].id}/reading-lists/${res[0][2].reading_list[0].id}`);
+                      console.log(this.uniqueCompletedReadingLists)
+                      if (!this.uniqueCompletedReadingLists.includes(`/courses/${res[0][1].course[0].id}/reading-lists/${res[0][2].reading_list[0].id}`)){
+                        try{
+                        console.log(res[0][2]);
+
+                        this.uniqueCompletedReadingLists.push(`/courses/${res[0][1].course[0].id}/reading-lists/${res[0][2].reading_list[0].id}`)
+                        }catch{
+                          console.log("error")
+                        }
+                      }
+                    }
+                  })
+
+               
+        
+                  
+                    
+        
+                    
+        
+                  
+                    //var completeable = new Array()
+                    
+                    //for (var array in this.completeArray){
+        
+        
+                    //}.
+        
+                  //   var invalid_array = this.completeArray.filter(function(e){
+                  //     return (e.valid === false || e.reading_list_valid === false || e.add_item_valid === false ||(e.moveable === true && e.item_move_valid === false))
+                  // })
+        
+                  // var invalid_courses = new Set(invalid_array.map(i => i.course_identifier));
+                 
+                  // var all_courses = new Set(this.completeArray.map(i => i.course_identifier));
+        
+                  // var valid_courses = all_courses.difference(invalid_courses);
+                  // var valid
+                  //   this.completeArray = filter(a => a.type == "ar");
+                  //   this.itemService.completeReadingLists(this.completeArray)
+                  //   return results;
+        
+                  //})
+                
+
+
+                
                 let str1 = `${this.translate.instant("Main.Processed")}: ${this.courseProcessed}\n`;
                 let str2 =  `${this.translate.instant("Main.Updated")}: ${successCount}\n`;
                 let str3 = `Skipped: ${skippedCount}\n`;
@@ -573,10 +694,14 @@ export class MainComponent implements OnInit, OnDestroy {
                 if(updatedItems){
                   this.log(`${this.translate.instant("Main.ProcessedItems")}:\n ${updatedItems.join(", ")}`);
                 }
+
+                
                 
 
+              
+                
                  
-                this.loading = false;
+                
                 
                 this.files= [];
                 
@@ -641,7 +766,27 @@ export class MainComponent implements OnInit, OnDestroy {
                 // var tab = window.open('about:blank', '_blank');
                 //tab.document.write('<p>' + file + '</p>'); // where 'html' is a variable containing your HTML
                 //tab.document.close(); // to finish loading the page
-               
+                //let completedList = new Array();
+                console.log(JSON.stringify(this.uniqueCompletedReadingLists));
+                this.uniqueCompletedReadingLists.forEach( url => {
+                  console.log(url);
+                  this.itemService.completeReadingLists(url).pipe(concatMap(result => {
+                  //that.itemService.completeReadingLists(url).pipe(concatMap(result => {
+                    return result;
+                    
+                  })).subscribe(result => {
+                    completedList.push(result);
+                  
+                  
+                // Track all identifiers for the difference calculation later
+        
+                })
+                })
+                if(completedList){
+                  this.log(`${this.translate.instant("Main.ProcessedItems")}:\n ${completedList.join(", ")}`);
+                }
+                  
+                this.loading = false;
                 
               }, 500);
              
@@ -649,6 +794,7 @@ export class MainComponent implements OnInit, OnDestroy {
 
         }
         })
+
         
         
     }
@@ -662,6 +808,42 @@ print(data){
 
 }
 
+completeReadingLists(url: any){
+
+  return this.restService.call(url)
+    .pipe(catchError(e=> {throw (e)})
+    
+    ,
+    switchMap(item => {
+
+      item['status'] = "Complete";
+      console.log(JSON.stringify(item));
+      return this.restService.call( {
+        url: url,
+        requestBody: item,
+        method: HttpMethod.PUT,
+        headers: {"Content-Type": "application/json"}
+        })
+
+        
+
+    }),
+    catchError(e=>of(this.handleError(e, url, "Error with adding citation to list"))))
+
+
+    
+    
+
 }
 
+
+
+private handleError(e: RestErrorResponse, item: any, message: String) {
+  const props = item;//'item.barcode ? item.barcode : ['mms_id', 'holding_id', 'item_pid'].map(p=>item[p]).join(', ');
+  if (item) {
+  e.message = message + e.message + ` (${JSON.stringify(props)})`
+  }
+  return e;
+  }
+}
 const isRestErrorResponse = (object: any): object is RestErrorResponse => 'error' in object;

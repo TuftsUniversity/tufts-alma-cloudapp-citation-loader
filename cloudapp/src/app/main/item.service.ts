@@ -486,7 +486,7 @@ getReadingList(id: any){
     
 
     
-    this.restService.call(`/courses?code~${course_code}`)
+    return this.restService.call(`/courses?code~${course_code}`)
     .subscribe(res =>{
       return this.almaCourseId.map(res => res.course[0]['id']);
     }
@@ -768,6 +768,32 @@ getCitations(almaReadingListId, almaCourseId) {
 
     )
 
+
+
+  }
+
+  completeReadingLists(url: any){
+
+    return this.restService.call(url)
+      .pipe(catchError(e=> {throw (e)})
+      
+      ,
+      switchMap(item => {
+
+        item["status"]["value"] = "Complete";
+        item["status"]["desc"] = "Complete";
+        console.log(JSON.stringify(item));
+        return this.restService.call( {
+          url: url,
+          requestBody: item,
+          method: HttpMethod.PUT,
+          headers: {"Content-Type": "application/json"}
+          })
+
+          
+
+      }),
+      catchError(e=>of(this.handleError(e, url, "Error with adding citation to list"))))
 
 
   }
