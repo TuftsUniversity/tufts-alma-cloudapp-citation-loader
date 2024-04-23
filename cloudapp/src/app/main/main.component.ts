@@ -22,6 +22,7 @@ export class MainComponent implements OnInit, OnDestroy {
   previousCourseEntry = new Array();
   previousReadingListEntry  = new Array();
   uniqueCompletedReadingLists = new Array();
+  uniqueNonComplete = new Array();
   completeArray = new Array();
   // this has the same value as the course code but is used for tracking
   // reading lists, if they are the same as the previous so processing can be skipped
@@ -32,6 +33,10 @@ export class MainComponent implements OnInit, OnDestroy {
   courseProcessed = 0;
   rLProcessed = 0;
   resultMessage = '';
+  completedReadingLists: number = 0;
+  completedList = new Array();
+  nonCompletedReadingLists = new Array();
+
 
   courseMMSIdInput = '';
   course_code = "";
@@ -181,7 +186,7 @@ export class MainComponent implements OnInit, OnDestroy {
                 
                 course_section = item['Course Section'];
                 course_code_and_section = course_code + "-" + course_section;
-                console.log(course_code_and_section);
+                //console.log(course_code_and_section);
                 }
                 
                 else{
@@ -195,7 +200,7 @@ export class MainComponent implements OnInit, OnDestroy {
                 if (item.course_section != ""){
                 course_section = item['course_section'];
                 course_code_and_section = course_code + "-" + course_section;
-                console.log(course_code_and_section);
+                //console.log(course_code_and_section);
                 }
                 else{
 
@@ -231,7 +236,7 @@ export class MainComponent implements OnInit, OnDestroy {
             tap((courses) => {this.previousCourseCode.push(courses[5])}),
             tap((courses) => {this.completeArray.push(courses)}),
             tap((courses =>  {
-              console.log(JSON.stringify(this.completeArray));
+              //(JSON.stringify(this.completeArray));
               
               }
             )),
@@ -265,15 +270,15 @@ export class MainComponent implements OnInit, OnDestroy {
               }
             }),
             tap((reading_list_object) => {
-              console.log(JSON.stringify(reading_list_object))  
-              console.log(JSON.stringify(this.previousReadingListEntry))
-              console.log(JSON.stringify(this.previousReadingListCode))
+             // console.log(JSON.stringify(reading_list_object))  
+             // console.log(JSON.stringify(this.previousReadingListEntry))
+             // console.log(JSON.stringify(this.previousReadingListCode))
               this.previousReadingListEntry.push(reading_list_object[2])
               
             
             }),
           tap((reading_list_object) => {
-            console.log(JSON.stringify(reading_list_object[5]))
+          //  console.log(JSON.stringify(reading_list_object[5]))
             this.previousReadingListCode.push(reading_list_object[5])
            
           
@@ -283,7 +288,7 @@ export class MainComponent implements OnInit, OnDestroy {
             concatMap(reading_list => {
               let reading_list_object = reading_list[2]
               
-              console.log(JSON.stringify(this.previousReadingListEntry))//[this.previousReadingListEntry.length  -1]);
+             // console.log(JSON.stringify(this.previousReadingListEntry))//[this.previousReadingListEntry.length  -1]);
               //console.log(JSON.stringify(reading_list))
               let valid = reading_list[0]
               let courses = reading_list[1]
@@ -505,12 +510,13 @@ export class MainComponent implements OnInit, OnDestroy {
               var that = this;
               let successCount = 0, errorCount = 0, skippedCount = 0; 
               let updatedItems = new Array();
-              let nonCompletedReadingLists = new Array();
+              
               
               let completedList = new Array();
+              let completedReadingLists: number = 0;
               let errorSummary = '';
               let skippedSummary = '';
-             console.log(JSON.stringify(results))
+            // console.log(JSON.stringify(results))
               results.forEach(res => {
                 //console.log(`${JSON.stringify(res)}`)
                
@@ -521,12 +527,12 @@ export class MainComponent implements OnInit, OnDestroy {
                     }
                
                 
-                if(res[0][0] == false){
+                if(res[0][0] != true){
                   errorCount++;
                   //errorSummary += `Error for course ${res[0][6]} and MMS ID ${res[0][5]}: ${res[0][1][2].data}\n`
 
                   errorSummary += `Error for course ${res[0][5]}\n`
-                  nonCompletedReadingLists.push(res[0][5]);
+                  this.nonCompletedReadingLists.push(res[0][5]);
                     
                 }
 
@@ -537,17 +543,27 @@ export class MainComponent implements OnInit, OnDestroy {
                     if (res[0][2][1] == "more_than_one_reading_list"){
                       errorCount++;
                       errorSummary += `More than one reading list for course ${res[0][5]} and MMS ID ${res[0][4]}\n`
-                      nonCompletedReadingLists.push(res[0][5]);
+                      this.nonCompletedReadingLists.push(res[0][5]);
                     }
-
+                    else{
+                      errorCount++;
+                      errorSummary += `Error in reading list for course ${res[0][5]} and MMS ID ${res[0][4]} ${res[0][2].message}\n`
+                      this.nonCompletedReadingLists.push(res[0][5]);
+                      }
 
                   }
 
                   else{
+                    errorCount++;
+                    errorSummary += `Error in reading list for course ${res[0][5]} and MMS ID ${res[0][4]} ${res[0][2].message}\n`
+                    this.nonCompletedReadingLists.push(res[0][5]);
+                    }
+                }
+
+                if (res[0][2][1] == "more_than_one_reading_list"){
                   errorCount++;
-                  errorSummary += `Error in reading list for course ${res[0][5]} and MMS ID ${res[0][4]} ${res[0][2].message}\n`
-                  nonCompletedReadingLists.push(res[0][5]);
-                  }
+                  errorSummary += `More than one reading list for course ${res[0][5]} and MMS ID ${res[0][4]}\n`
+                  this.nonCompletedReadingLists.push(res[0][5]);
                 }
 
                 // else if (res[0][11] == false){
@@ -560,7 +576,7 @@ export class MainComponent implements OnInit, OnDestroy {
 
                   errorCount++;
                   errorSummary += `Bad MMS ID for course ${res[0][5]} and MMS ID ${res[0][4]} : ${res[0][3].message}\n`
-                  nonCompletedReadingLists.push(res[0][5]);
+                  this.nonCompletedReadingLists.push(res[0][5]);
 
 
                 }
@@ -589,7 +605,7 @@ export class MainComponent implements OnInit, OnDestroy {
                     if (res[0][8] != "" && res[0][9] != ""){
                       errorCount++;
                       errorSummary += `Error moving physical items for course ${res[0][5]} and MMS ID ${res[0][4]} to library ${res[0][8]} and location ${res[0][9]}\n`
-                      nonCompletedReadingLists.push(res[0][5]);
+                      this.nonCompletedReadingLists.push(res[0][5]);
 
                     }
 
@@ -599,9 +615,15 @@ export class MainComponent implements OnInit, OnDestroy {
                     }
 
                   }
-                  else{
+                  else if (res[0][0] != false && res[0][11]!= false && !('error' in res[0][3])){
                   updatedItems.push("course code: " + JSON.stringify(res[0][5])  + ", reading list: " + JSON.stringify(res[0][2].reading_list[0].name) + ", section: " + JSON.stringify(res[0][12])+ ", MMS ID: " + res[0][4] + `citation: ${JSON.stringify(res[0][3].id)}\n`);
                   successCount++;
+                  }
+
+                  else{
+                  errorSummary += `Error for course ${res[0][5]}\n`
+                  this.nonCompletedReadingLists.push(res[0][5]);
+
                   }
                 }
                 });
@@ -619,21 +641,37 @@ export class MainComponent implements OnInit, OnDestroy {
                   
     
         
-                  let uniqueNonComplete = nonCompletedReadingLists.filter((item, i, ar) => ar.indexOf(item) === i);
+                  this.uniqueNonComplete = this.nonCompletedReadingLists.filter((item, i, ar) => ar.indexOf(item) === i);
                   
 
+                //  console.log(JSON.stringify(this.uniqueNonComplete));
                   results.forEach(res => {
 
-                    if (!(res[0][5] in uniqueNonComplete)){
-                      console.log(`/courses/${res[0][1].course[0].id}/reading-lists/${res[0][2].reading_list[0].id}`);
-                      console.log(this.uniqueCompletedReadingLists)
+                    if (!this.uniqueNonComplete.includes(res[0][5])){
+                    //  console.log("reading list object"); 
+                      //console.log(JSON.stringify(res[0][2]));
+                     // console.log("course valid")
+                     // console.log([0][0]);
+                     // console.log("item exists")
+                     // console.log([0][6]);
+                     // console.log("Add item valid")
+                     // console.log([0][10]);
+                    //  console.log("course code")
+                    //  console.log(res[0][5])
+                    //  console.log("reading list valid")
+                   //   console.log(res[0][11]);
+                    //  console.log("Move item valid")
+                    //  console.log(res[0][13]);
+
+                    //  console.log(`/courses/${res[0][1].course[0].id}/reading-lists/${res[0][2].reading_list[0].id}`);
+                    //  console.log(this.uniqueCompletedReadingLists)
                       if (!this.uniqueCompletedReadingLists.includes(`/courses/${res[0][1].course[0].id}/reading-lists/${res[0][2].reading_list[0].id}`)){
                         try{
-                        console.log(res[0][2]);
+                     //   console.log(res[0][2]);
 
                         this.uniqueCompletedReadingLists.push(`/courses/${res[0][1].course[0].id}/reading-lists/${res[0][2].reading_list[0].id}`)
                         }catch{
-                          console.log("error")
+                       //   let error = "error";
                         }
                       }
                     }
@@ -769,31 +807,45 @@ export class MainComponent implements OnInit, OnDestroy {
                 //let completedList = new Array();
                 console.log(JSON.stringify(this.uniqueCompletedReadingLists));
                 this.uniqueCompletedReadingLists.forEach( url => {
-                  console.log(url);
+                 console.log(url);
                   this.itemService.completeReadingLists(url).pipe(concatMap(result => {
                   //that.itemService.completeReadingLists(url).pipe(concatMap(result => {
-                    return result;
+                    this.completedReadingLists++;
+                    this.completedList.push(result.code);
+                    console.log(JSON.stringify(this.completedList));
+                    console.log(JSON.stringify(this.completedReadingLists))
+                    return of(result)
                     
-                  })).subscribe(result => {
-                    completedList.push(result);
+                  }))
+                  .subscribe(result => {
+                    
+                  }
+
+                  )
                   
-                  
-                // Track all identifiers for the difference calculation later
-        
-                })
-                })
-                if(completedList){
-                  this.log(`${this.translate.instant("Main.ProcessedItems")}:\n ${completedList.join(", ")}`);
-                }
-                  
-                this.loading = false;
+                    
+                    
+                    
+                  })
+
+             
+                  this.log(`${this.translate.instant("Number of Completed Reading Lists")}: ${this.completedReadingLists}`);
+                  this.log(`${this.translate.instant("Total Number of Non-Completed Reading Lists")}: ${this.uniqueNonComplete.length}`);
+              if(this.completedList){
+                this.log(`${this.translate.instant("Completed Reading Lists")}:\n ${this.completedList.join(", ")}`);
+              }
+    
+              if (this.uniqueNonComplete){
+                this.log(`${this.translate.instant("Non-Completed Reading Lists")}:\n ${this.uniqueNonComplete.join(", ")}`);
+              }
+              this.loading = false;
+                
                 
               }, 500);
              
+             
 
-
-        }
-        })
+        }        })
 
         
         
