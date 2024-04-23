@@ -494,7 +494,11 @@ export class MainComponent implements OnInit, OnDestroy {
         //Collect all results into an array
           
         )))
-       
+        
+
+
+        
+        
           
          
 
@@ -503,6 +507,7 @@ export class MainComponent implements OnInit, OnDestroy {
         .subscribe({
           
           next: result => results.push(result),
+          
           complete: () => {
             
             setTimeout(() => {
@@ -736,7 +741,7 @@ export class MainComponent implements OnInit, OnDestroy {
                 
                 
 
-              
+                this.completeReadingLists()
                 
                  
                 
@@ -805,41 +810,9 @@ export class MainComponent implements OnInit, OnDestroy {
                 //tab.document.write('<p>' + file + '</p>'); // where 'html' is a variable containing your HTML
                 //tab.document.close(); // to finish loading the page
                 //let completedList = new Array();
-                console.log(JSON.stringify(this.uniqueCompletedReadingLists));
-                this.uniqueCompletedReadingLists.forEach( url => {
-                 console.log(url);
-                  this.itemService.completeReadingLists(url).pipe(concatMap(result => {
-                  //that.itemService.completeReadingLists(url).pipe(concatMap(result => {
-                    this.completedReadingLists++;
-                    this.completedList.push(result.code);
-                    console.log(JSON.stringify(this.completedList));
-                    console.log(JSON.stringify(this.completedReadingLists))
-                    return of(result)
-                    
-                  }))
-                  .subscribe(result => {
-                    
-                  }
-
-                  )
-                  
-                    
-                    
-                    
-                  })
-
-             
-                  this.log(`${this.translate.instant("Number of Completed Reading Lists")}: ${this.completedReadingLists}`);
-                  this.log(`${this.translate.instant("Total Number of Non-Completed Reading Lists")}: ${this.uniqueNonComplete.length}`);
-              if(this.completedList){
-                this.log(`${this.translate.instant("Completed Reading Lists")}:\n ${this.completedList.join(", ")}`);
-              }
-    
-              if (this.uniqueNonComplete){
-                this.log(`${this.translate.instant("Non-Completed Reading Lists")}:\n ${this.uniqueNonComplete.join(", ")}`);
-              }
-              this.loading = false;
-                
+               // console.log(JSON.stringify(this.uniqueCompletedReadingLists));
+               
+               
                 
               }, 500);
              
@@ -848,11 +821,71 @@ export class MainComponent implements OnInit, OnDestroy {
         }        })
 
         
+
+        
+
+
+          
+
+       
+        
         
     }
     fileReader.readAsArrayBuffer(this.files[0]);
        
 }
+
+completeReadingLists(){
+
+  let results = new Array();
+      
+  from(this.uniqueCompletedReadingLists).pipe(concatMap( url => this.itemService.completeReadingLists(url).pipe(
+    
+  
+  
+  ))).subscribe({
+          
+    next: result => results.push(result),
+    
+    complete: () => {
+      
+      setTimeout(() => {
+
+      results.forEach(res => {
+        this.completedReadingLists++;
+        this.completedList.push(res['code']);
+        console.log(JSON.stringify(this.completedList));
+        console.log(JSON.stringify(this.completedReadingLists))
+      })
+        this.log(`${this.translate.instant("Number of Completed Reading Lists")}: ${this.completedReadingLists}`);
+        this.log(`${this.translate.instant("Total Number of Non-Completed Reading Lists")}: ${this.uniqueNonComplete.length}`);
+    if(this.completedList){
+      this.log(`${this.translate.instant("Completed Reading Lists")}:\n ${this.completedList.join(", ")}`);
+    }
+    
+    if (this.uniqueNonComplete){
+      this.log(`${this.translate.instant("Non-Completed Reading Lists")}:\n ${this.uniqueNonComplete.join(", ")}`);
+    }
+    
+        this.loading = false;
+    
+
+
+      }, 500)
+      
+      
+    }
+    
+   
+  })
+     
+     
+    
+}
+      
+
+  
+
 print(data){
   console.log(data)
   let file = new Blob([data], {type: 'text/plain'});
@@ -860,33 +893,33 @@ print(data){
 
 }
 
-completeReadingLists(url: any){
+// completeReadingLists(url: any){
 
-  return this.restService.call(url)
-    .pipe(catchError(e=> {throw (e)})
+//   return this.restService.call(url)
+//     .pipe(catchError(e=> {throw (e)})
     
-    ,
-    switchMap(item => {
+//     ,
+//     switchMap(item => {
 
-      item['status'] = "Complete";
-      console.log(JSON.stringify(item));
-      return this.restService.call( {
-        url: url,
-        requestBody: item,
-        method: HttpMethod.PUT,
-        headers: {"Content-Type": "application/json"}
-        })
+//       item['status'] = "Complete";
+//       console.log(JSON.stringify(item));
+//       return this.restService.call( {
+//         url: url,
+//         requestBody: item,
+//         method: HttpMethod.PUT,
+//         headers: {"Content-Type": "application/json"}
+//         })
 
         
 
-    }),
-    catchError(e=>of(this.handleError(e, url, "Error with adding citation to list"))))
+//     }),
+//     catchError(e=>of(this.handleError(e, url, "Error with adding citation to list"))))
 
 
     
     
 
-}
+// }
 
 
 
