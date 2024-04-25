@@ -1,11 +1,13 @@
-import { from, of, combineLatest, Observable, iif, forkJoin } from 'rxjs';
+import { from, of, combineLatest, Observable, iif, forkJoin, Subscription  } from 'rxjs';
 import { tap , concatMap, switchMap, flatMap, toArray, mergeAll, map, catchError, finalize, mergeMap} from 'rxjs/operators';
-import { Component, OnInit, OnDestroy } from '@angular/core';
-import { RestErrorResponse, CloudAppRestService, HttpMethod } from '@exlibris/exl-cloudapp-angular-lib';
+import { Component, OnInit, OnDestroy,ViewChild } from '@angular/core';
+import { RestErrorResponse, CloudAppRestService, HttpMethod,CloudAppSettingsService, CloudAppEventsService, PageInfo} from '@exlibris/exl-cloudapp-angular-lib';
 import { TranslateService } from '@ngx-translate/core';
+import { Configuration } from "../models/configuration.model";
 import * as XLSX from 'xlsx';
 import * as FileSaver from 'file-saver';
 import { saveAs } from 'file-saver-es';
+import { Settings } from '../models/settings.model';
 
 import { ItemService } from './item.service';
 import {JSONPath} from 'jsonpath-plus';
@@ -17,8 +19,16 @@ import {JSONPath} from 'jsonpath-plus';
   styleUrls: ['./main.component.scss']
 })
 export class MainComponent implements OnInit, OnDestroy {
+  @ViewChild("drop", { static: false }) dropZone: any;
+  private pageLoad$: Subscription;
+  loadingConfig: boolean = false;
+  config: Configuration;
+  hasApiResult: boolean = false;
+  private _apiResult: any;
+  settings: Settings;
   files: File[] = [];
   counter: number = 0;
+  loadingSettings: boolean = false;
   previousCourseEntry = new Array();
   previousReadingListEntry  = new Array();
   uniqueCompletedReadingLists = new Array();
@@ -49,11 +59,23 @@ export class MainComponent implements OnInit, OnDestroy {
     private itemService: ItemService,
     private translate: TranslateService,
     private restService: CloudAppRestService,
+    private settingsService: CloudAppSettingsService,
+    private eventsService: CloudAppEventsService
     
     
   ) { }
 
   ngOnInit() {
+
+    this.pageLoad$ = this.eventsService.onPageLoad(this.onPageLoad);
+    this.settingsService.get().subscribe(settings => {
+      this.settings = settings as Settings;
+      if ((this.settings.library != "") && (this.settings.location != "")){
+        this.loadingSettings = false;
+      }else{
+        this.loadingSettings = true;
+      }
+    });
     
   }
 
@@ -68,6 +90,17 @@ export class MainComponent implements OnInit, OnDestroy {
     this.files.splice(this.files.indexOf(event), 1);
   } 
   
+  get apiResult() {
+    return this._apiResult;
+  }
+
+  set apiResult(result: any) {
+    this._apiResult = result;
+    this.hasApiResult = result && Object.keys(result).length > 0;
+  }
+
+  onPageLoad = (pageInfo: PageInfo) => {
+  }
   loadExecl() {
     
     this.loading = true;
@@ -168,8 +201,10 @@ export class MainComponent implements OnInit, OnDestroy {
               }
 
               
-              let reserves_library: string = item.temporary_library;
-              let reserves_location: string = item.temporary_location;
+              //let reserves_library: string = item.temporary_library;
+              let reserves_library: string = this.settings.library;
+              //let reserves_location: string = item.temporary_location;
+              let reserves_location: string = this.settings.location;
               let response = userResult[0];  
             
               let valid = false;

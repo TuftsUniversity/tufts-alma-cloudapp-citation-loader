@@ -1,5 +1,8 @@
 
-
+<div>
+  <h1>This app needs to be configured first</h1>
+  <a [routerLink]="['settings']">To settings</a>
+</div>
 <div class="cloudapp-actions" align="end">
   <button mat-flat-button type="button" color="primary" (click)="loadExecl()" [disabled]="files.length==0 || loading">{{ 'Main.LoadItems' | translate }}</button>
 </div>

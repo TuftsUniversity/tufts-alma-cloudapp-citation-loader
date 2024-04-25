@@ -40,8 +40,7 @@
         <mat-select
           ngModel
           name="library"
-          [matTooltip]="constants.libraryTip"
-          required
+    
           #library="ngModel"
           [(ngModel)]="config.mustConfig.library"
           (selectionChange)="onLibraryChange($event.value)">
@@ -50,18 +49,18 @@
           }}</mat-option>
         </mat-select>
       </mat-form-field>
-      <span *ngIf="!library.valid && library.touched"><p>Please choose a library</p></span>
+      <span *ngIf="!library.valid && library.touched"><p>Please choose a location</p></span>
       <div class="from" ngModelGroup="from" appFromvalidator #from="ngModelGroup">
         <mat-form-field>
-          <mat-label>Circulation desk</mat-label>
+          <mat-label>Library</mat-label>
           <mat-select
-            [matTooltip]="constants.circTip"
+           
             ngModel
-            name="circ_desk"
-            [(ngModel)]="config.from.circ_desk"
+            name="location"
+            [(ngModel)]="config.from.locations"
             #circ_desk
             (selectionChange)="onLocationChange(config.from.location)">
-          <mat-option *ngFor="let location of locations" [value]="circ.code">{{
+          <mat-option *ngFor="let location of locations" [value]="location.code">{{
             location.name
           }}</mat-option>
         </mat-select>
@@ -70,35 +69,12 @@
        
   
       </div>
-      <span *ngIf="!from.valid && from.touched"
-        ><p>
-          Please choose either circulation desk or department, but not both.
-        </p></span>
-      <mat-form-field>
-      
-      <br />
-      <mat-slide-toggle
-        name="confirm"
-        [matTooltip]="constants.confirmTip"
-        matTooltipPosition="right"
-        [(ngModel)]="this.config.mustConfig.confirm"
-        color="primary"
-        labelPosition="after"
-        >Confirm</mat-slide-toggle>
-      <br />
-  
-      
-      <br />
-  
-      
-        <br />
-      </div>
-      <br /><br /><br />
+    </form>
+  </section>
       <!-- <button mat-stroked-button color="primary" type="submit" [disabled]="!form.valid">
         Save
       </button>
       <button mat-stroked-button color="primary" type="button" (click)="onRestore()" style="margin-left: 4px;">
         Restore Defaults
       </button> -->
-    </form>
-  </section>
+    

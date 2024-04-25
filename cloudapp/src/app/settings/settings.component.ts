@@ -117,7 +117,7 @@ export class SettingsComponent implements OnInit {
 
 
   getLocationData(code) {
-    return this.restService.call("/conf/library/" +code+ "/locations").pipe(
+    return this.restService.call("/conf/libraries/" +code+ "/locations").pipe(
       catchError((error) => {
         // Handle errors from the department API
         this.locations = [];
