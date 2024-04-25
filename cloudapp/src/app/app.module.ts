@@ -12,12 +12,14 @@ import { AppRoutingModule } from './app-routing.module';
 import { MainComponent } from './main/main.component';
 import { MatIconModule } from '@angular/material/icon';
 import { HelpComponent } from './help/help.component';
+import { SettingsComponent } from "./settings/settings.component";
 
 @NgModule({
   declarations: [
     AppComponent,
     MainComponent,
     HelpComponent,
+    SettingsComponent
   ],
   imports: [
     MaterialModule,

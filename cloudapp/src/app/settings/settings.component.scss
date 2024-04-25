@@ -1,0 +1,20 @@
+mat-form-field {
+    width: 100%;
+  }
+  .from.ng-invalid.ng-touched {
+    padding: 1px;
+    border: 1px solid red;
+  }
+  .check-boxs {
+    display: inline-block;
+    align-content: center;
+    align-items: center;
+    width: 100%;
+    max-width: 100%;
+  }
+  .checkbox-margin {
+    margin: 0 10px;
+  }
+  mat-checkbox {
+    align-self: center;
+  }
