@@ -147,7 +147,7 @@ private handleOtherError<T, O extends ObservableInput<any>>(
     let course_section: string;
     let course_code_and_section: string;
     let course_code_and_section_url: string;
-    if ('course_section' in item){
+    if ('course_section' in item && item.course_section != ''){
       course_section = item.course_section;
       course_code_and_section = course_code + "-" + course_section;
       course_code_and_section_url = `/courses?q=code~${course_code}%20AND%20section~${course_section}`;
@@ -500,6 +500,7 @@ getReadingList(id: any){
   createList(reading_list: any, course: any) {
 
 
+    console.log(JSON.stringify(reading_list))
           
   
     // try {
@@ -541,6 +542,15 @@ getReadingList(id: any){
       requestBody: readingListObj
     });
        } else{
+
+        if('id' in original){
+
+          return(of(original));
+
+        }
+        else{
+
+        
         console.log("error in reading list creation")
         const source$ = of([{ status: 200, data: course}, 'create_citation_false', { status: 200, data: `reading list creation failed for ${course}` }]);
         return source$.pipe(
@@ -551,6 +561,7 @@ getReadingList(id: any){
               
           })
       )
+        }
       }
 }),
 

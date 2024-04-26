@@ -13,6 +13,7 @@ import { ItemService } from './item.service';
 import {JSONPath} from 'jsonpath-plus';
 
 
+
 @Component({
   selector: 'app-main',
   templateUrl: './main.component.html',
@@ -144,6 +145,7 @@ export class MainComponent implements OnInit, OnDestroy {
               // Implement your conditional logic here
               let reading_list_id: string;
               let reading_list_name: string;
+              
               //console.log(userResult);
 
                 let course_code:string;
@@ -251,8 +253,10 @@ export class MainComponent implements OnInit, OnDestroy {
                 
                 course_code = userResult.course[0].code;
                 course_id = userResult.course[0].id;
-                //reading_list_id = userResult[0].reading_list[0].id;
-                //reading_list_name = userResult[0].reading_list[0].id;
+                course_section = userResult.course[0].section;
+                
+                course_code_and_section = course_code + "-" + course_section;
+              
                 valid = true;
                 //console.log(userResult);
                 return forkJoin([of(valid), of(userResult), of(userResult), of(course_id), of(mms_id), of(course_code_and_section), of(barcode), of(reserves_library), of(reserves_location), of(citation_type), of(reading_list_section)])//, this.itemService.getCitations(reading_list_id, course_id), of(barcode), of(citation_type), of(reserves_library), of(reserves_location)])
@@ -287,10 +291,10 @@ export class MainComponent implements OnInit, OnDestroy {
               let reserves_location = courses[8]
               let citation_type = courses[9]
               let reading_list_section = courses[10]
-              //console.log(JSON.stringify(courses))
+              console.log(JSON.stringify(course))
 
               if ('course' in course){
-                //console.log("course in courses")
+                console.log("course in courses")
                   let valid = true
             //}
                 return forkJoin([of(valid), of(course), this.itemService.readingListLookup(course, course_code_and_section, course_id, this.previousReadingListCode, this.previousReadingListEntry, this.rLProcessed, valid), of(course_id), of(mms_id), of(course_code_and_section), of(barcode), of(reserves_library), of(reserves_location), of(citation_type), of(reading_list_section)])
@@ -336,10 +340,25 @@ export class MainComponent implements OnInit, OnDestroy {
               let reserves_location = reading_list[8]
               let citation_type = reading_list[9]
               let reading_list_section = reading_list[10]
-              //console.log(reading_list_object)
-              if ('reading_list' in reading_list[2]) {
-                let reading_list_id = reading_list[2]['reading_list'][0]['id'];
-                let reading_list_name = reading_list[2]['reading_list'][0]['name'];
+              console.log(reading_list_object)
+
+              let reading_list_id: string;
+              let reading_list_name: string;
+              if ('reading_list' in reading_list[2] || 'id' in reading_list[2]) {
+
+                if ('reading_list' in reading_list[2]){
+                reading_list_id = reading_list[2]['reading_list'][0]['id'];
+                reading_list_name = reading_list[2]['reading_list'][0]['name'];
+
+                }
+
+                else if ('id' in reading_list[2]){
+              reading_list_id = reading_list[2]['id'];
+                reading_list_name = reading_list[2]['name'];
+
+                }
+                console.log(JSON.stringify(reading_list[2]))
+                
                 let valid = true;
                 let reading_list_valid = true;
                 return forkJoin([of(valid), of(courses), of(reading_list_object), of(course_id), of(mms_id), of(course_code_and_section), this.itemService.getCitations(reading_list_id, course_id), of(barcode), of(reserves_library), of(reserves_location) , of(citation_type), of(reading_list_valid), of(reading_list_section)])
@@ -365,6 +384,15 @@ export class MainComponent implements OnInit, OnDestroy {
             tap((object) => {
               let reading_list_id: string;
 
+              if ('reading_list' in object[2]){
+                reading_list_id = object[2]['reading_list'][0]['id'];
+
+              }
+              
+              else if ('id' in object[2]){
+
+                reading_list_id = object[2]['id'];
+              }
               try{
 
                 reading_list_id = object[2]['reading_list'][0]['id'];
@@ -412,7 +440,19 @@ export class MainComponent implements OnInit, OnDestroy {
            
 
             if(!(mmsIdArray.includes(mms_id))){
-              return this.itemService.addToList(reading_list_object['reading_list'][0]['id'], course_id, mms_id, citation_type, reading_list_section).pipe(
+             
+              let reading_list_id: string;
+              if('reading_list' in reading_list_object){
+                reading_list_id = reading_list_object['reading_list'][0]['id'];
+
+              }
+
+              else if ('id' in reading_list_object){
+                reading_list_id = reading_list_object['id'];
+
+              }
+
+              return this.itemService.addToList(reading_list_id, course_id, mms_id, citation_type, reading_list_section).pipe(
                 concatMap(response_citation => {
                   add_item_valid = false;
                   let exists = false;
@@ -632,9 +672,24 @@ export class MainComponent implements OnInit, OnDestroy {
                 }
   
                 else{
+                  let reading_list_id: string;
+                    let reading_list_name: string;
+                    if ('reading_list' in res[0][2]){
+                      reading_list_id = res[0][2]['reading_list'][0]['id'];
+                      reading_list_name =res[0][2]['reading_list'][0]['name'];
+      
+                      }
+      
+                      else if ('id' in res[0][2]){
+                    reading_list_id = res[0][2]['id'];
+                      reading_list_name = res[0][2]['name'];
+      
+                      }
                   if (res[0][10] == true){
+
                     
-                    updatedItems.push("course code: " + JSON.stringify(res[0][5])  + ", reading list: " + JSON.stringify(res[0][2].reading_list[0].name) + ", section: " + JSON.stringify(reading_list_section) + ", MMS ID: " + res[0][4] + `citation: ${JSON.stringify(res[0][3].id)} - Item with barcode ${res[0][7]} now in location ${res[0][9]} in library ${res[0][8]} \n`);
+                    
+                    updatedItems.push("course code: " + JSON.stringify(res[0][5])  + ", reading list: " + reading_list_name + ", section: " + JSON.stringify(reading_list_section) + ", MMS ID: " + res[0][4] + `citation: ${JSON.stringify(res[0][3].id)} - Item with barcode ${res[0][7]} now in location ${res[0][9]} in library ${res[0][8]} \n`);
                     successCount++;
                     
 
@@ -650,13 +705,13 @@ export class MainComponent implements OnInit, OnDestroy {
                     }
 
                     else{
-                      updatedItems.push("course code: " + JSON.stringify(res[0][5])  + ", reading list: " + JSON.stringify(res[0][2].reading_list[0].name) + ", section: " + JSON.stringify(reading_list_section)+ ", MMS ID: " + res[0][4] + `citation: ${JSON.stringify(res[0][3].id)}\n`);
+                      updatedItems.push("course code: " + JSON.stringify(res[0][5])  + ", reading list: " + reading_list_name + ", section: " + JSON.stringify(reading_list_section)+ ", MMS ID: " + res[0][4] + `citation: ${JSON.stringify(res[0][3].id)}\n`);
                       successCount++;
                     }
 
                   }
                   else if (res[0][0] != false && res[0][11]!= false && !('error' in res[0][3])){
-                  updatedItems.push("course code: " + JSON.stringify(res[0][5])  + ", reading list: " + JSON.stringify(res[0][2].reading_list[0].name) + ", section: " + JSON.stringify(res[0][12])+ ", MMS ID: " + res[0][4] + `citation: ${JSON.stringify(res[0][3].id)}\n`);
+                  updatedItems.push("course code: " + JSON.stringify(res[0][5])  + ", reading list: " + reading_list_name + ", section: " + JSON.stringify(res[0][12])+ ", MMS ID: " + res[0][4] + `citation: ${JSON.stringify(res[0][3].id)}\n`);
                   successCount++;
                   }
 
@@ -703,13 +758,26 @@ export class MainComponent implements OnInit, OnDestroy {
                     //  console.log("Move item valid")
                     //  console.log(res[0][13]);
 
+                    let reading_list_id: string;
+                    let reading_list_name: string;
+                    if ('reading_list' in res[0][2]){
+                      reading_list_id = res[0][2]['reading_list'][0]['id'];
+                      reading_list_name =res[0][2]['reading_list'][0]['name'];
+      
+                      }
+      
+                      else if ('id' in res[0][2]){
+                    reading_list_id = res[0][2]['id'];
+                      reading_list_name = res[0][2]['name'];
+      
+                      }
                     //  console.log(`/courses/${res[0][1].course[0].id}/reading-lists/${res[0][2].reading_list[0].id}`);
                     //  console.log(this.uniqueCompletedReadingLists)
-                      if (!this.uniqueCompletedReadingLists.includes(`/courses/${res[0][1].course[0].id}/reading-lists/${res[0][2].reading_list[0].id}`)){
+                      if (!this.uniqueCompletedReadingLists.includes(`/courses/${res[0][1].course[0].id}/reading-lists/${reading_list_id}`)){
                         try{
                      //   console.log(res[0][2]);
 
-                        this.uniqueCompletedReadingLists.push(`/courses/${res[0][1].course[0].id}/reading-lists/${res[0][2].reading_list[0].id}`)
+                        this.uniqueCompletedReadingLists.push(`/courses/${res[0][1].course[0].id}/reading-lists/${reading_list_id}`)
                         }catch{
                        //   let error = "error";
                         }
