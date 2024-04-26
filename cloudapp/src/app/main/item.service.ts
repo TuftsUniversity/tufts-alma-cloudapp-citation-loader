@@ -124,7 +124,7 @@ private handleOtherError<T, O extends ObservableInput<any>>(
     let mms_id: string;
     if ('course_code' in item){
 
-      course_code = item.course_code;
+      course_code = item.course_code.replace(/[\{\}"']/g, "");
     }
 
     else{

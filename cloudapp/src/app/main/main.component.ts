@@ -152,7 +152,7 @@ export class MainComponent implements OnInit, OnDestroy {
                 let mms_id: string;
               if ('course_code' in item){
 
-                course_code = item.course_code;
+                course_code = item.course_code.replace(/[\{\}"']/g, "");
               }
 
               else{
@@ -163,11 +163,11 @@ export class MainComponent implements OnInit, OnDestroy {
               
               if ('mms_id' in item){
 
-                mms_id = item.mms_id
+                mms_id = item.mms_id.replace(/[\{\}"']/g, "");
               }
 
               else{
-              let mms_id = item['MMS ID'].replace(/[\{\}"']/g, "");
+              mms_id = item['MMS ID'].replace(/[\{\}"']/g, "");
               }
               
 
