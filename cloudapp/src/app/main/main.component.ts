@@ -23,6 +23,10 @@ export class MainComponent implements OnInit, OnDestroy {
   @ViewChild("drop", { static: false }) dropZone: any;
   private pageLoad$: Subscription;
   loadingConfig: boolean = false;
+  isChecked: boolean;
+  library: string;
+  location: string;
+  complete: boolean;
   config: Configuration;
   hasApiResult: boolean = false;
   private _apiResult: any;
@@ -49,6 +53,7 @@ export class MainComponent implements OnInit, OnDestroy {
   nonCompletedReadingLists = new Array();
 
 
+
   courseMMSIdInput = '';
   course_code = "";
   courses: any;
@@ -71,11 +76,18 @@ export class MainComponent implements OnInit, OnDestroy {
     this.pageLoad$ = this.eventsService.onPageLoad(this.onPageLoad);
     this.settingsService.get().subscribe(settings => {
       this.settings = settings as Settings;
-      if ((this.settings.library != "") && (this.settings.location != "") && this.settings.isChecked == false){
+      if ((this.settings.library != "") && (this.settings.location != "")){
         this.loadingSettings = false;
       }else{
         this.loadingSettings = true;
       }
+
+    this.isChecked = this.settings.isChecked;
+    this.library = this.settings.library;
+    this.location = this.settings.location;
+    
+    console.log(this.isChecked)
+    console.log(this.location);
     });
     
   }
@@ -111,6 +123,7 @@ export class MainComponent implements OnInit, OnDestroy {
     let courseIds =[]
     let resultsRL =[];
     this.resultMessage = '';
+    console.log(this.isChecked)
     fileReader.onload = (e) => {
         this.arrayBuffer = fileReader.result;
         var data = new Uint8Array(this.arrayBuffer);
@@ -204,9 +217,12 @@ export class MainComponent implements OnInit, OnDestroy {
 
               
               //let reserves_library: string = item.temporary_library;
-              let reserves_library: string = this.settings.library;
+              let reserves_library: string = this.library;
+              
               //let reserves_location: string = item.temporary_location;
-              let reserves_location: string = this.settings.location;
+              let reserves_location: string = this.location;
+              console.log(reserves_library);
+              console.log(reserves_location);
               let response = userResult[0];  
             
               let valid = false;
@@ -319,6 +335,7 @@ export class MainComponent implements OnInit, OnDestroy {
           tap((reading_list_object) => {
           //  console.log(JSON.stringify(reading_list_object[5]))
             this.previousReadingListCode.push(reading_list_object[5])
+            
            
           
 
@@ -405,6 +422,8 @@ export class MainComponent implements OnInit, OnDestroy {
             
             }),
             concatMap(object => {
+            let complete: boolean;
+
             
             let valid = object[0];
             let courses = object[1];
@@ -413,9 +432,10 @@ export class MainComponent implements OnInit, OnDestroy {
             let mms_id = object[4];
             let course_code_and_section = object[5];
             let citations: any = object[6];
-            let reserves_library = object[7];
-            let reserves_location = object[8];
-            let barcode = object[9];
+            let barcode = object[7];
+            let reserves_library = object[8];
+            let reserves_location = object[9];
+            
             let citation_type = object[10];
             let reading_list_valid = object[11]
             let reading_list_section = object[12]
@@ -423,6 +443,21 @@ export class MainComponent implements OnInit, OnDestroy {
 
             let mmsIdArray = new Array();
             let add_item_valid: boolean;
+
+
+            console.log(this.isChecked)
+                
+                if (this.isChecked == true || barcode == "" || barcode == undefined){
+                  complete = true;
+                  
+
+                }
+
+                else{
+
+                  complete = false;
+                 
+                }
           if (valid && reading_list_valid){
 
               if ('citation' in citations){
@@ -451,17 +486,16 @@ export class MainComponent implements OnInit, OnDestroy {
                 reading_list_id = reading_list_object['id'];
 
               }
+              
+                
 
-                let complete: boolean;
-                if (this.settings.isChecked == true){
-
-
-                }
+                console.log(complete)
               return this.itemService.addToList(reading_list_id, course_id, mms_id, citation_type, reading_list_section, complete).pipe(
                 concatMap(response_citation => {
                   add_item_valid = false;
                   let exists = false;
-                  return forkJoin([of(valid), of(courses), of(reading_list_object), of(response_citation), of(mms_id), of(course_code_and_section), of(exists), of(barcode), of(reserves_library), of(reserves_location), of(citation_type), of(reading_list_valid), of(reading_list_section), of(add_item_valid)]) // The response from addToList
+                  
+                  return forkJoin([of(valid), of(courses), of(reading_list_object), of(response_citation), of(mms_id), of(course_code_and_section), of(exists), of(barcode), of(reserves_library), of(reserves_location), of(citation_type), of(reading_list_valid), of(reading_list_section), of(add_item_valid), of(complete)]) // The response from addToList
                   //reading_list_id, // Keep the original reading_list_id
                   //course_id, // Keep the original course_id
                   //mms_id, // Keep the original mms_id
@@ -472,7 +506,7 @@ export class MainComponent implements OnInit, OnDestroy {
                   // Handle error, you might want to include the IDs in the error as well
                   let exists = false;
                   add_item_valid = false;
-                  return forkJoin([of(valid), of(courses), of(reading_list_object), of(error), of(mms_id), of(course_code_and_section), of(exists), of(barcode), of(reserves_library), of(reserves_location), of(citation_type), of(reading_list_valid), of(reading_list_section), of(add_item_valid) ]) // The response from addToList
+                  return forkJoin([of(valid), of(courses), of(reading_list_object), of(error), of(mms_id), of(course_code_and_section), of(exists), of(barcode), of(reserves_library), of(reserves_location), of(citation_type), of(reading_list_valid), of(reading_list_section), of(add_item_valid), of(complete) ]) // The response from addToList
                 })
               )
             }
@@ -481,7 +515,7 @@ export class MainComponent implements OnInit, OnDestroy {
               let exists = true;
               add_item_valid = true;
               let userResult1 = object;
-              return forkJoin([of(valid), of(courses), of(reading_list_object), of(citations), of(mms_id), of(course_code_and_section), of(exists), of(barcode), of(reserves_library), of(reserves_location), of(citation_type), of(reading_list_valid), of(reading_list_section), of(add_item_valid)]) // The response from addToList
+              return forkJoin([of(valid), of(courses), of(reading_list_object), of(citations), of(mms_id), of(course_code_and_section), of(exists), of(barcode), of(reserves_library), of(reserves_location), of(citation_type), of(reading_list_valid), of(reading_list_section), of(add_item_valid), of(complete)]) // The response from addToList
               
 
             }
@@ -498,12 +532,13 @@ export class MainComponent implements OnInit, OnDestroy {
             add_item_valid = false;
               let exists = false
               let userResult1 = object;
-              return forkJoin([of(valid), of(courses), of(reading_list_object), of(citations), of(mms_id), of(course_code_and_section), of(exists), of(barcode), of(reserves_library), of(reserves_location),  of(citation_type), of(reading_list_valid), of(reading_list_section), of(add_item_valid)]);
+              return forkJoin([of(valid), of(courses), of(reading_list_object), of(citations), of(mms_id), of(course_code_and_section), of(exists), of(barcode), of(reserves_library), of(reserves_location),  of(citation_type), of(reading_list_valid), of(reading_list_section), of(add_item_valid), of(complete)]);
               
 
             
           }
           }), 
+          
          
           concatMap(object => {
             //console.log(JSON.stringify(object));
@@ -523,6 +558,7 @@ export class MainComponent implements OnInit, OnDestroy {
             let reading_list_valid = object[11];
             let reading_list_section = object[12];
             let add_item_valid = object[13];
+            let complete = object[14];
             let item_move_valid: boolean = false;
             let moveable: boolean;
 
@@ -532,8 +568,8 @@ export class MainComponent implements OnInit, OnDestroy {
 
             else{moveable = false}
 
-
-           //console.log(`${JSON.stringify(object)}`);
+            console.log(reserves_library + reserves_location)
+           console.log(`${JSON.stringify(object)}`);
             if (valid == true && reading_list_valid == true && exists == false && barcode && reserves_library && reserves_location){
        
 
@@ -543,12 +579,12 @@ export class MainComponent implements OnInit, OnDestroy {
                   
                   if ('error' in item){
                     item_move_valid = false;
-                    return forkJoin([of(valid), of(courses), of(reading_list_object), of(citations), of(mms_id), of(course_code_and_section), of(exists), of(barcode), of(reserves_library), of(reserves_location), of(item_move_valid), of(reading_list_valid), of(reading_list_section), of(add_item_valid), of(moveable)]);
+                    return forkJoin([of(valid), of(courses), of(reading_list_object), of(citations), of(mms_id), of(course_code_and_section), of(exists), of(barcode), of(reserves_library), of(reserves_location), of(item_move_valid), of(reading_list_valid), of(reading_list_section), of(add_item_valid), of(moveable), of(complete)]);
 
                   }
                   else{
                     item_move_valid = true;
-                  return forkJoin([of(valid), of(courses), of(reading_list_object), of(citations), of(mms_id), of(course_code_and_section), of(exists), of(barcode), of(reserves_library), of(reserves_location), of(item_move_valid), of(reading_list_valid), of(reading_list_section), of(add_item_valid), of(moveable)]);
+                  return forkJoin([of(valid), of(courses), of(reading_list_object), of(citations), of(mms_id), of(course_code_and_section), of(exists), of(barcode), of(reserves_library), of(reserves_location), of(item_move_valid), of(reading_list_valid), of(reading_list_section), of(add_item_valid), of(moveable), of(complete)]);
                   }
                 })
               )
@@ -556,7 +592,7 @@ export class MainComponent implements OnInit, OnDestroy {
 
             else {
               //return forkJoin([of(valid), of(userResult), of(userResult1), of(reading_list_id), of(course_id), of(mms_id), of(course_code), of(barcode), of(citation_type), of(reserves_library), of(reserves_location), of(userResult1)]);
-                return forkJoin([of(valid), of(courses), of(reading_list_object), of(citations), of(mms_id), of(course_code_and_section), of(exists), of(barcode), of(reserves_library), of(reserves_location), of(item_move_valid), of(reading_list_valid), of(reading_list_section), of(moveable)]);
+                return forkJoin([of(valid), of(courses), of(reading_list_object), of(citations), of(mms_id), of(course_code_and_section), of(exists), of(barcode), of(reserves_library), of(reserves_location), of(item_move_valid), of(reading_list_valid), of(reading_list_section), of(moveable), of(complete)]);
 
             }
 
@@ -747,7 +783,7 @@ export class MainComponent implements OnInit, OnDestroy {
                 //  console.log(JSON.stringify(this.uniqueNonComplete));
                   results.forEach(res => {
 
-                    if (!this.uniqueNonComplete.includes(res[0][5])){
+                    if (!this.uniqueNonComplete.includes(res[0][5]) && res[0][14] == true){
                     //  console.log("reading list object"); 
                       //console.log(JSON.stringify(res[0][2]));
                      // console.log("course valid")

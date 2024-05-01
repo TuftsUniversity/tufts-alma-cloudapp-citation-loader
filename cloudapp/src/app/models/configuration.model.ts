@@ -3,8 +3,9 @@ export class Configuration {
     mustConfig = {
       library: "",
       location: "",
-   
+      isChecked: false
     };
+    isChecked = false;
     from: { location?: string; } = {
       location: ""
     };

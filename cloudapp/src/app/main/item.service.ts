@@ -604,7 +604,7 @@ getReadingList(id: any){
         complete_setting = "Complete";
       }
 
-      else{
+      else if (complete == false){
 
         complete_setting = "BeingPrepared"
       }

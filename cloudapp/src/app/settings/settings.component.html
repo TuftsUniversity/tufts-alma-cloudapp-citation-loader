@@ -66,10 +66,10 @@
         </mat-select>
         </mat-form-field>
 
-        <label>
-            <input type="checkbox" [(ngModel)]="isChecked" (change)="onChangeCheckbox()">
-            Complete physical item citations?
-          </label>
+        
+        <mat-checkbox type="checkbox" name="isChecked" [(ngModel)]="config.isChecked" (change)="onChangeCheckbox()">
+          Complete physical item citations?
+        </mat-checkbox>
 
           
        

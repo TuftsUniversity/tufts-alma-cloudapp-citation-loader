@@ -41,20 +41,17 @@ export class SettingsComponent implements OnInit {
     this.loading = true;
     let rest = this.restService.call("/conf/libraries/");
     let config = this.settingsService.get();
-
+  
     forkJoin({ rest, config }).subscribe({
       next: (value) => {
-
-        this.isChecked = value.rest.isChecked as boolean;
         this.libraries = value.rest.library as Library[];
-
-  
         let emptyLib: Library = { link:"", code:"INST_LEVEL", path:"", name:"Institution Level", description:"",
                       resource_sharing:null, campus: null, proxy:"", default_location:null};
         this.libraries.unshift(emptyLib);
-
+  
         if (value.config && Object.keys(value.config).length !== 0) {
           this.config = value.config;
+          this.isChecked = this.config.isChecked; 
           this.onLibraryChange(value.config.mustConfig.library, true);
         }
       },
@@ -70,11 +67,11 @@ export class SettingsComponent implements OnInit {
   }
 
   onSubmit(form: NgForm) {
-    console.log(form);
+    //this.config.mustConfig.isChecked = this.isChecked; // Ensure isChecked is updated in the config
     this.settingsService.set(this.config).subscribe({
       next: () => {
         this.alert.success("Updated Successfully", { keepAfterRouteChange: true });
-        this.router.navigate([""]);   
+        this.router.navigate([""]);
       },
       error: (err: RestErrorResponse) => {
         console.error(err.message);
@@ -156,8 +153,10 @@ export class SettingsComponent implements OnInit {
   }
 
   onChangeCheckbox() {
-    this.isChecked = !this.isChecked;  // Toggle the checkbox state
-    this.settingsService.set({ isChecked: this.isChecked }); // Update the settings
+    this.isChecked = !this.isChecked; // Toggle the checkbox state
+
+    console.log(this.isChecked)
+    // No need to call set here if it will be handled by the form submit
   }
 
 //   onDepartmentChange(department_code: string){
