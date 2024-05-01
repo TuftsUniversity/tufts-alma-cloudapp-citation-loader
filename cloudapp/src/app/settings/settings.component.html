@@ -52,7 +52,7 @@
       <span *ngIf="!library.valid && library.touched"><p>Please choose a location</p></span>
       <div class="from" ngModelGroup="from" appFromvalidator #from="ngModelGroup">
         <mat-form-field>
-          <mat-label>Library</mat-label>
+          <mat-label>Location</mat-label>
           <mat-select
            
             ngModel
@@ -65,6 +65,13 @@
           }}</mat-option>
         </mat-select>
         </mat-form-field>
+
+        <label>
+            <input type="checkbox" [(ngModel)]="isChecked" (change)="onChangeCheckbox()">
+            Complete physical item citations?
+          </label>
+
+          
        
        
   

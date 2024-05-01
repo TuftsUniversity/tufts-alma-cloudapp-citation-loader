@@ -577,7 +577,7 @@ getReadingList(id: any){
 
 }
 
-    addToList(almaReadingListId: string, almaCourseId: string, mms_id, citation_type: string, reading_list_section: string) {
+    addToList(almaReadingListId: string, almaCourseId: string, mms_id, citation_type: string, reading_list_section: string, complete: boolean) {
 
       let type: string = "BK";
       let section: string = "Resources";
@@ -598,9 +598,19 @@ getReadingList(id: any){
       }
 
 
+      let complete_setting: string;
+      if (complete && complete == true){
+
+        complete_setting = "Complete";
+      }
+
+      else{
+
+        complete_setting = "BeingPrepared"
+      }
       this.citation = `{
         "status": {
-          "value": "Complete"
+          "value": "${complete_setting}"
         },
         "copyrights_status": {
           "value": "NOTREQUIRED"
@@ -745,7 +755,7 @@ getCitations(almaReadingListId, almaCourseId) {
       item = JSON.stringify(item)
       // item = JSON.parse(item);
       
-      //console.log(item);
+      console.log(JSON.stringify(item));
       //url= item['link'] ? item['link'].substring(item['link'].indexOf("/almaws/v1/")+10 ): url
       
       // if ('pid' in item['item_data']){

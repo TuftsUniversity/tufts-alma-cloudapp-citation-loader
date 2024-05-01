@@ -71,7 +71,7 @@ export class MainComponent implements OnInit, OnDestroy {
     this.pageLoad$ = this.eventsService.onPageLoad(this.onPageLoad);
     this.settingsService.get().subscribe(settings => {
       this.settings = settings as Settings;
-      if ((this.settings.library != "") && (this.settings.location != "")){
+      if ((this.settings.library != "") && (this.settings.location != "") && this.settings.isChecked == false){
         this.loadingSettings = false;
       }else{
         this.loadingSettings = true;
@@ -452,7 +452,12 @@ export class MainComponent implements OnInit, OnDestroy {
 
               }
 
-              return this.itemService.addToList(reading_list_id, course_id, mms_id, citation_type, reading_list_section).pipe(
+                let complete: boolean;
+                if (this.settings.isChecked == true){
+
+
+                }
+              return this.itemService.addToList(reading_list_id, course_id, mms_id, citation_type, reading_list_section, complete).pipe(
                 concatMap(response_citation => {
                   add_item_valid = false;
                   let exists = false;

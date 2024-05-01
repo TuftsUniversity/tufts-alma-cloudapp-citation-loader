@@ -23,7 +23,9 @@ import { catchError, finalize, map } from "rxjs/operators";
 export class SettingsComponent implements OnInit {
   config: Configuration = new Configuration();
   libraries: Library[] = [];
+  isChecked: boolean;
   locations: Location[] = [];
+  citation_complete: boolean = false;
 
   loading: boolean = false;
   work_order_types :string[] =[];
@@ -42,7 +44,10 @@ export class SettingsComponent implements OnInit {
 
     forkJoin({ rest, config }).subscribe({
       next: (value) => {
+
+        this.isChecked = value.rest.isChecked as boolean;
         this.libraries = value.rest.library as Library[];
+
   
         let emptyLib: Library = { link:"", code:"INST_LEVEL", path:"", name:"Institution Level", description:"",
                       resource_sharing:null, campus: null, proxy:"", default_location:null};
@@ -148,6 +153,11 @@ export class SettingsComponent implements OnInit {
     //}else if(department_code != undefined && department_code != ''){
       //this.onDepartmentChange(department_code);
     //}
+  }
+
+  onChangeCheckbox() {
+    this.isChecked = !this.isChecked;  // Toggle the checkbox state
+    this.settingsService.set({ isChecked: this.isChecked }); // Update the settings
   }
 
 //   onDepartmentChange(department_code: string){
