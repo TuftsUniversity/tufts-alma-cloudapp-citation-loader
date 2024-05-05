@@ -605,7 +605,11 @@ getReadingList(id: any){
         complete_setting = "Complete";
       }
 
-      else {complete_setting = "BeingPrepared"}
+      else {
+        complete_setting = "BeingPrepared"
+      }
+
+      console.log(complete_setting)
 
         
       
