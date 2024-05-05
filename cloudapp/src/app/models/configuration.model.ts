@@ -6,8 +6,8 @@ export class Configuration {
       isChecked: false
     };
     isChecked = false;
-    from: { location?: string; } = {
-      location: ""
+    from: { locations?: string; } = {
+      locations: ""
     };
   
     departmentArgs: { done: boolean } = { done: false };

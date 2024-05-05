@@ -24,11 +24,12 @@ export class MainComponent implements OnInit, OnDestroy {
   private pageLoad$: Subscription;
   loadingConfig: boolean = false;
   isChecked: boolean;
-  library: string;
-  location: string;
+ 
   complete: boolean;
   config: Configuration;
   hasApiResult: boolean = false;
+  library: string;
+  location: string;
   private _apiResult: any;
   settings: Settings;
   files: File[] = [];
@@ -71,23 +72,21 @@ export class MainComponent implements OnInit, OnDestroy {
     
   ) { }
 
-  ngOnInit() {
-
-    this.pageLoad$ = this.eventsService.onPageLoad(this.onPageLoad);
-    this.settingsService.get().subscribe(settings => {
-      this.settings = settings as Settings;
-      if ((this.settings.library != "") && (this.settings.location != "")){
-        this.loadingSettings = false;
-      }else{
-        this.loadingSettings = true;
-      }
-
-    this.isChecked = this.settings.isChecked;
-    this.library = this.settings.library;
-    this.location = this.settings.location;
-    
-    console.log(this.isChecked)
-    console.log(this.location);
+ngOnInit() {
+    this.loadingConfig = true;
+    this.settingsService.get().subscribe({
+      next: (res: Configuration) => {
+        if (res && Object.keys(res).length !== 0) {
+          this.config = res;
+          
+        }
+        this.loadingConfig = false;
+      },
+      error: (err: Error) => {
+        console.log(console.log(JSON.stringify(this.config)));
+        console.error(err.message);
+        this.loadingConfig = false;
+      },
     });
     
   }
@@ -115,7 +114,13 @@ export class MainComponent implements OnInit, OnDestroy {
   onPageLoad = (pageInfo: PageInfo) => {
   }
   loadExecl() {
-    
+    console.log(this.config.mustConfig.library)
+    console.log(this.config.from.locations);
+    console.log(this.config.isChecked);
+    this.library = this.config.mustConfig.library;
+    this.location = this.config.from.locations;
+    this.isChecked = this.config.isChecked;
+    console.log(this.config);
     this.loading = true;
     this.courseProcessed = 0;
     let fileReader = new FileReader();
@@ -123,7 +128,7 @@ export class MainComponent implements OnInit, OnDestroy {
     let courseIds =[]
     let resultsRL =[];
     this.resultMessage = '';
-    console.log(this.isChecked)
+    console.log(this.config.mustConfig.isChecked)
     fileReader.onload = (e) => {
         this.arrayBuffer = fileReader.result;
         var data = new Uint8Array(this.arrayBuffer);
@@ -220,7 +225,7 @@ export class MainComponent implements OnInit, OnDestroy {
               let reserves_library: string = this.library;
               
               //let reserves_location: string = item.temporary_location;
-              let reserves_location: string = this.location;
+              let reserves_location = this.location;
               console.log(reserves_library);
               console.log(reserves_location);
               let response = userResult[0];  
@@ -446,6 +451,7 @@ export class MainComponent implements OnInit, OnDestroy {
 
 
             console.log(this.isChecked)
+            console.log(barcode);
                 
                 if (this.isChecked == true || barcode == "" || barcode == undefined){
                   complete = true;
@@ -570,6 +576,11 @@ export class MainComponent implements OnInit, OnDestroy {
 
             console.log(reserves_library + reserves_location)
            console.log(`${JSON.stringify(object)}`);
+
+           console.log(valid);
+           console.log(reading_list_valid);
+           console.log(exists);
+
             if (valid == true && reading_list_valid == true && exists == false && barcode && reserves_library && reserves_location){
        
 
@@ -639,7 +650,7 @@ export class MainComponent implements OnInit, OnDestroy {
               let skippedSummary = '';
             // console.log(JSON.stringify(results))
               results.forEach(res => {
-                //console.log(`${JSON.stringify(res)}`)
+                console.log(`${JSON.stringify(res[0][15])}`)
                
                 let reading_list_section: string = "Resources";
                     if(res[0][12]){
@@ -729,10 +740,18 @@ export class MainComponent implements OnInit, OnDestroy {
                   if (res[0][10] == true){
 
                     
+                   if (res[0][15] == false){
+
+                      updatedItems.push("course code: " + JSON.stringify(res[0][5])  + ", reading list: " + reading_list_name + ", section: " + JSON.stringify(reading_list_section) + ", MMS ID: " + res[0][4] + `citation: ${JSON.stringify(res[0][3].id)} - Item with barcode ${res[0][7]} sytemically moved to location ${res[0][9]} in library ${res[0][8]} but still needs to be physically moved \n`);
+                    successCount++;
+                    this.nonCompletedReadingLists.push(res[0][5]);
+                    }
+
+                    else{
                     
                     updatedItems.push("course code: " + JSON.stringify(res[0][5])  + ", reading list: " + reading_list_name + ", section: " + JSON.stringify(reading_list_section) + ", MMS ID: " + res[0][4] + `citation: ${JSON.stringify(res[0][3].id)} - Item with barcode ${res[0][7]} now in location ${res[0][9]} in library ${res[0][8]} \n`);
                     successCount++;
-                    
+                    }
 
 
                   }
@@ -746,6 +765,9 @@ export class MainComponent implements OnInit, OnDestroy {
                     }
 
                     else{
+
+                      
+                      
                       updatedItems.push("course code: " + JSON.stringify(res[0][5])  + ", reading list: " + reading_list_name + ", section: " + JSON.stringify(reading_list_section)+ ", MMS ID: " + res[0][4] + `citation: ${JSON.stringify(res[0][3].id)}\n`);
                       successCount++;
                     }
@@ -776,6 +798,7 @@ export class MainComponent implements OnInit, OnDestroy {
                   
                   
     
+                  
         
                   this.uniqueNonComplete = this.nonCompletedReadingLists.filter((item, i, ar) => ar.indexOf(item) === i);
                   
@@ -783,7 +806,7 @@ export class MainComponent implements OnInit, OnDestroy {
                 //  console.log(JSON.stringify(this.uniqueNonComplete));
                   results.forEach(res => {
 
-                    if (!this.uniqueNonComplete.includes(res[0][5]) && res[0][14] == true){
+                    if (!this.uniqueNonComplete.includes(res[0][5])){
                     //  console.log("reading list object"); 
                       //console.log(JSON.stringify(res[0][2]));
                      // console.log("course valid")

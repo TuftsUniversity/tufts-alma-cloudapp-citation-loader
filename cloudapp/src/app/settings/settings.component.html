@@ -58,7 +58,7 @@
             ngModel
             name="location"
             [(ngModel)]="config.from.locations"
-            #circ_desk
+            #location
             (selectionChange)="onLocationChange(config.from.location)">
           <mat-option *ngFor="let location of locations" [value]="location.code">{{
             location.name

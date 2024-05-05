@@ -598,16 +598,17 @@ getReadingList(id: any){
       }
 
 
+      console.log(complete)
       let complete_setting: string;
       if (complete && complete == true){
 
         complete_setting = "Complete";
       }
 
-      else if (complete == false){
+      else {complete_setting = "BeingPrepared"}
 
-        complete_setting = "BeingPrepared"
-      }
+        
+      
       this.citation = `{
         "status": {
           "value": "${complete_setting}"

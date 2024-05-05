@@ -44,14 +44,17 @@ export class SettingsComponent implements OnInit {
   
     forkJoin({ rest, config }).subscribe({
       next: (value) => {
+        console.log(value);
         this.libraries = value.rest.library as Library[];
         let emptyLib: Library = { link:"", code:"INST_LEVEL", path:"", name:"Institution Level", description:"",
                       resource_sharing:null, campus: null, proxy:"", default_location:null};
         this.libraries.unshift(emptyLib);
+        this.locations = value.rest.locations as Location[];
   
         if (value.config && Object.keys(value.config).length !== 0) {
           this.config = value.config;
           this.isChecked = this.config.isChecked; 
+          console.log(JSON.stringify(this.config));
           this.onLibraryChange(value.config.mustConfig.library, true);
         }
       },
@@ -72,12 +75,14 @@ export class SettingsComponent implements OnInit {
       next: () => {
         this.alert.success("Updated Successfully", { keepAfterRouteChange: true });
         this.router.navigate([""]);
+        console.log(JSON.stringify(this.config))
       },
       error: (err: RestErrorResponse) => {
         console.error(err.message);
         this.alert.error(err.message);
       },
     });
+    
   }
   onRestore() {
     this.config = new Configuration();
@@ -94,9 +99,9 @@ export class SettingsComponent implements OnInit {
       () => {
         this.loading = false;
         if (!init) {
-          this.config.from.location = "";
+          this.config.from.locations = "";
         }else{
-          this.onLocationChange(this.config.from.location);
+          this.onLocationChange(this.config.from.locations);
         }
       }))
         .subscribe({
@@ -133,7 +138,7 @@ export class SettingsComponent implements OnInit {
   
   onLocationChange(location: string){
     
-   // if(location != undefined && location != ''){
+  //  if(location != undefined && location != ''){
       const library = this.config.mustConfig.library == "INST_LEVEL" ?  "" : this.config.mustConfig.library;
       this.restService.call("/conf/libraries/" + library + "/locations" ).pipe(finalize(
         () => {
@@ -147,9 +152,9 @@ export class SettingsComponent implements OnInit {
             console.error(err.message);
           }
         });
-    //}else if(department_code != undefined && department_code != ''){
-      //this.onDepartmentChange(department_code);
-    //}
+    // }else if(location != undefined){
+    //   this.onLocationChange(location);
+    // }
   }
 
   onChangeCheckbox() {
