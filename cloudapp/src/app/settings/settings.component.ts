@@ -26,6 +26,8 @@ export class SettingsComponent implements OnInit {
   isChecked: boolean;
   locations: Location[] = [];
   citation_complete: boolean = false;
+  pub_status: string = "";
+  visibility: string = "";
 
   loading: boolean = false;
   work_order_types :string[] =[];
@@ -44,7 +46,7 @@ export class SettingsComponent implements OnInit {
   
     forkJoin({ rest, config }).subscribe({
       next: (value) => {
-        console.log(value);
+       // console.log(value);
         this.libraries = value.rest.library as Library[];
         let emptyLib: Library = { link:"", code:"INST_LEVEL", path:"", name:"Institution Level", description:"",
                       resource_sharing:null, campus: null, proxy:"", default_location:null};
@@ -54,7 +56,9 @@ export class SettingsComponent implements OnInit {
         if (value.config && Object.keys(value.config).length !== 0) {
           this.config = value.config;
           this.isChecked = this.config.isChecked; 
-          console.log(JSON.stringify(this.config));
+          this.pub_status = this.config.mustConfig.pub_status;
+          this.visibility = this.config.mustConfig.visibility;
+          //console.log(JSON.stringify(this.config));
           this.onLibraryChange(value.config.mustConfig.library, true);
         }
       },
@@ -75,7 +79,7 @@ export class SettingsComponent implements OnInit {
       next: () => {
         this.alert.success("Updated Successfully", { keepAfterRouteChange: true });
         this.router.navigate([""]);
-        console.log(JSON.stringify(this.config))
+        //console.log(JSON.stringify(this.config))
       },
       error: (err: RestErrorResponse) => {
         console.error(err.message);
@@ -160,8 +164,13 @@ export class SettingsComponent implements OnInit {
   onChangeCheckbox() {
     this.isChecked = !this.isChecked; // Toggle the checkbox state
 
-    console.log(this.isChecked)
+    //console.log(this.isChecked)
     // No need to call set here if it will be handled by the form submit
+  }
+
+  onPubStatusChange(pub_status: string){
+
+    this.pub_status = pub_status;
   }
 
 //   onDepartmentChange(department_code: string){

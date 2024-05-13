@@ -66,16 +66,58 @@
         </mat-select>
         </mat-form-field>
 
-        
+        </div>
+        <div>
+          <mat-form-field>
+            <mat-label>Reading List visibility, if list needs to be created</mat-label>
+            <mat-select
+             
+              ngModel
+              name="visibility" 
+              #visibility="ngModel" 
+              [(ngModel)]="config.mustConfig.visibility" 
+              (selectionChange)="onPubStatusChange($event.value)">
+              <mat-option value="PUBLIC">All Students Restricted</mat-option>
+              <mat-option value="RESTRICTED">Course Students</mat-option>
+              <mat-option value="OPEN_TO_WORLD">Anyone Restricted</mat-option>
+              <mat-option value="REGISTERED">All Students Full</mat-option>
+              <mat-option value="FULL">Anyone Full</mat-option>
+              <mat-option value="PARTIAL">Anyone Restricted, All Students Full</mat-option>
+              <mat-option value="DRAFT">Draft</mat-option>
+              <mat-option value="ARCHIVED">Archived</mat-option>
+              <mat-option value="ARCHIVED">Archived</mat-option>
+            
+             <mat-option value="DELETED">	Deleted</mat-option>
+          </mat-select>
+          </mat-form-field>
+        </div>
+        <div>
+          <mat-form-field>
+            <mat-label>Reading List publication status, if list needs to be created</mat-label>
+            <mat-select
+             
+              ngModel
+              name="pub_status" 
+              #pub_status="ngModel" 
+              [(ngModel)]="config.mustConfig.pub_status" 
+              (selectionChange)="onPubStatusChange($event.value)">
+              <mat-option value="ARCHIVED">Archived</mat-option>
+              <mat-option value="DRAFT">Draft</mat-option>
+              <mat-option value="PUBLISHED">Published</mat-option>
+
+          </mat-select>
+          </mat-form-field>
+        </div>
+        <div>
         <mat-checkbox type="checkbox" name="isChecked" [(ngModel)]="config.isChecked" (change)="onChangeCheckbox()">
           Complete physical item citations?
         </mat-checkbox>
-
+      </div>
           
        
        
   
-      </div>
+      
     </form>
   </section>
       <!-- <button mat-stroked-button color="primary" type="submit" [disabled]="!form.valid">

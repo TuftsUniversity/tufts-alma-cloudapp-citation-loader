@@ -30,6 +30,8 @@ export class MainComponent implements OnInit, OnDestroy {
   hasApiResult: boolean = false;
   library: string;
   location: string;
+  pub_status: string;
+  visibility: string;
   private _apiResult: any;
   settings: Settings;
   files: File[] = [];
@@ -114,13 +116,14 @@ ngOnInit() {
   onPageLoad = (pageInfo: PageInfo) => {
   }
   loadExecl() {
-    console.log(this.config.mustConfig.library)
-    console.log(this.config.from.locations);
-    console.log(this.config.isChecked);
+    //console.log(this.config.mustConfig.library)
+    //console.log(this.config.from.locations);
+    //console.log(this.config.isChecked);
+    //console.log(this.config.mustConfig.pub_status)
     this.library = this.config.mustConfig.library;
     this.location = this.config.from.locations;
     this.isChecked = this.config.isChecked;
-    console.log(this.config);
+    //console.log(this.config);
     this.loading = true;
     this.courseProcessed = 0;
     let fileReader = new FileReader();
@@ -128,7 +131,7 @@ ngOnInit() {
     let courseIds =[]
     let resultsRL =[];
     this.resultMessage = '';
-    console.log(this.config.mustConfig.isChecked)
+   // console.log(this.config.mustConfig.isChecked)
     fileReader.onload = (e) => {
         this.arrayBuffer = fileReader.result;
         var data = new Uint8Array(this.arrayBuffer);
@@ -220,14 +223,24 @@ ngOnInit() {
                 citation_type = item.secondary_type;
               }
 
+              let item_policy: string;
+              if ('Item Policy' in item){
+                
+                item_policy = item['Item Policy'].replace(/[\{\}"']/g, "");
+              }
+
+              else if ('item_policy' in item){
+
+                item_policy = item['item_poliy'].replace(/[\{\}"']/g, "");
+              }
               
               //let reserves_library: string = item.temporary_library;
               let reserves_library: string = this.library;
               
               //let reserves_location: string = item.temporary_location;
               let reserves_location = this.location;
-              console.log(reserves_library);
-              console.log(reserves_location);
+              //console.log(reserves_library);
+              //console.log(reserves_location);
               let response = userResult[0];  
             
               let valid = false;
@@ -243,7 +256,7 @@ ngOnInit() {
                 if (item['Course Section'] != ""){
                 
                 course_section = item['Course Section'];
-                course_code_and_section = course_code + "-" + course_section;
+                course_code_and_section = course_code + "-" + course_section.replace(/[\{\}"']/g, "");;
                 //console.log(course_code_and_section);
                 }
                 
@@ -253,18 +266,32 @@ ngOnInit() {
                 }
               }
 
-              else if ('course_section' in item){
-
-                if (item.course_section != ""){
+              if ("course_section" in item){
+                if (item['course_section'] != ""){
+                
                 course_section = item['course_section'];
-                course_code_and_section = course_code + "-" + course_section;
+                course_code_and_section = course_code + "-" + course_section.replace(/[\{\}"']/g, "");;
                 //console.log(course_code_and_section);
                 }
+                
                 else{
 
                   course_code_and_section = course_code;
                 }
               }
+
+              // else if ('course_section' in item){
+
+              //   if (item.course_section != ""){
+              //   course_section = item['course_section'];
+              //   course_code_and_section = course_code + "-" + course_section;
+              //   //console.log(course_code_and_section);
+              //   }
+              //   else{
+
+              //     course_code_and_section = course_code;
+              //   }
+              // }
 
               else{
 
@@ -280,7 +307,7 @@ ngOnInit() {
               
                 valid = true;
                 //console.log(userResult);
-                return forkJoin([of(valid), of(userResult), of(userResult), of(course_id), of(mms_id), of(course_code_and_section), of(barcode), of(reserves_library), of(reserves_location), of(citation_type), of(reading_list_section)])//, this.itemService.getCitations(reading_list_id, course_id), of(barcode), of(citation_type), of(reserves_library), of(reserves_location)])
+                return forkJoin([of(valid), of(userResult), of(userResult), of(course_id), of(mms_id), of(course_code_and_section), of(barcode), of(reserves_library), of(reserves_location), of(citation_type), of(reading_list_section), of(item_policy)])//, this.itemService.getCitations(reading_list_id, course_id), of(barcode), of(citation_type), of(reserves_library), of(reserves_location)])
 
                               } 
                                            
@@ -288,7 +315,7 @@ ngOnInit() {
                 
                 valid = false;
                 let dummyCourse = userResult;
-                return forkJoin([of(valid), of(userResult), of(dummyCourse), of(course_id), of(mms_id), of(course_code_and_section), of(barcode), of(reserves_library), of(reserves_location), of(citation_type), of(reading_list_section)])//, of(dummyCitations), of(barcode), of(citation_type), of(reserves_library), of(reserves_location)])
+                return forkJoin([of(valid), of(userResult), of(dummyCourse), of(course_id), of(mms_id), of(course_code_and_section), of(barcode), of(reserves_library), of(reserves_location), of(citation_type), of(reading_list_section), of(item_policy)])//, of(dummyCitations), of(barcode), of(citation_type), of(reserves_library), of(reserves_location)])
 
               
               }
@@ -312,20 +339,21 @@ ngOnInit() {
               let reserves_location = courses[8]
               let citation_type = courses[9]
               let reading_list_section = courses[10]
-              console.log(JSON.stringify(course))
-
+              let item_policy = courses[11]
+             // console.log(JSON.stringify(course))
+              
               if ('course' in course){
-                console.log("course in courses")
+                //console.log("course in courses")
                   let valid = true
             //}
-                return forkJoin([of(valid), of(course), this.itemService.readingListLookup(course, course_code_and_section, course_id, this.previousReadingListCode, this.previousReadingListEntry, this.rLProcessed, valid), of(course_id), of(mms_id), of(course_code_and_section), of(barcode), of(reserves_library), of(reserves_location), of(citation_type), of(reading_list_section)])
+                return forkJoin([of(valid), of(course), this.itemService.readingListLookup(course, course_code_and_section, course_id, this.previousReadingListCode, this.previousReadingListEntry, this.rLProcessed, valid, this.config.mustConfig.pub_status, this.config.mustConfig.visibility), of(course_id), of(mms_id), of(course_code_and_section), of(barcode), of(reserves_library), of(reserves_location), of(citation_type), of(reading_list_section), of(item_policy)])
               }
 
 
 
               else{
                 let valid = false
-                return forkJoin([of(valid), of(course), this.itemService.readingListLookup(course, course_code_and_section, course_id, this.previousReadingListCode, this.previousReadingListEntry, this.rLProcessed, valid), of(course_id), of(mms_id), of(course_code_and_section), of(barcode), of(reserves_library), of(reserves_location), of(citation_type), of(reading_list_section)])
+                return forkJoin([of(valid), of(course), this.itemService.readingListLookup(course, course_code_and_section, course_id, this.previousReadingListCode, this.previousReadingListEntry, this.rLProcessed, valid, this.config.mustConfig.pub_status, this.config.mustConfig.visibility), of(course_id), of(mms_id), of(course_code_and_section), of(barcode), of(reserves_library), of(reserves_location), of(citation_type), of(reading_list_section), of(item_policy)])
 
               }
             }),
@@ -362,7 +390,8 @@ ngOnInit() {
               let reserves_location = reading_list[8]
               let citation_type = reading_list[9]
               let reading_list_section = reading_list[10]
-              console.log(reading_list_object)
+              let item_policy = reading_list[11];
+              //console.log(reading_list_object)
 
               let reading_list_id: string;
               let reading_list_name: string;
@@ -379,11 +408,11 @@ ngOnInit() {
                 reading_list_name = reading_list[2]['name'];
 
                 }
-                console.log(JSON.stringify(reading_list[2]))
+                //console.log(JSON.stringify(reading_list[2]))
                 
                 let valid = true;
                 let reading_list_valid = true;
-                return forkJoin([of(valid), of(courses), of(reading_list_object), of(course_id), of(mms_id), of(course_code_and_section), this.itemService.getCitations(reading_list_id, course_id), of(barcode), of(reserves_library), of(reserves_location) , of(citation_type), of(reading_list_valid), of(reading_list_section)])
+                return forkJoin([of(valid), of(courses), of(reading_list_object), of(course_id), of(mms_id), of(course_code_and_section), this.itemService.getCitations(reading_list_id, course_id), of(barcode), of(reserves_library), of(reserves_location) , of(citation_type), of(reading_list_valid), of(reading_list_section), of(item_policy)])
 
                                           } 
                                                      
@@ -393,7 +422,7 @@ ngOnInit() {
                 
                 let reading_list_valid = false;
                 let dummyCitations = courses
-                return forkJoin([of(valid), of(courses), of(reading_list_object), of(course_id), of(mms_id), of(course_code_and_section), of(dummyCitations), of(barcode), of(reserves_library), of(reserves_location) , of(citation_type), of(reading_list_valid), of(reading_list_section)])
+                return forkJoin([of(valid), of(courses), of(reading_list_object), of(course_id), of(mms_id), of(course_code_and_section), of(dummyCitations), of(barcode), of(reserves_library), of(reserves_location) , of(citation_type), of(reading_list_valid), of(reading_list_section), of(item_policy)])
 
               
               }
@@ -444,14 +473,15 @@ ngOnInit() {
             let citation_type = object[10];
             let reading_list_valid = object[11]
             let reading_list_section = object[12]
+            let item_policy = object[13]
 
 
             let mmsIdArray = new Array();
             let add_item_valid: boolean;
 
 
-            console.log(this.isChecked)
-            console.log(barcode);
+           // console.log(this.isChecked)
+            //console.log(barcode);
                 
                 if (this.isChecked == true || barcode == "" || barcode == undefined){
                   complete = true;
@@ -495,13 +525,13 @@ ngOnInit() {
               
                 
 
-                console.log(complete)
+                //console.log(complete)
               return this.itemService.addToList(reading_list_id, course_id, mms_id, citation_type, reading_list_section, complete).pipe(
                 concatMap(response_citation => {
                   add_item_valid = false;
                   let exists = false;
                   
-                  return forkJoin([of(valid), of(courses), of(reading_list_object), of(response_citation), of(mms_id), of(course_code_and_section), of(exists), of(barcode), of(reserves_library), of(reserves_location), of(citation_type), of(reading_list_valid), of(reading_list_section), of(add_item_valid), of(complete)]) // The response from addToList
+                  return forkJoin([of(valid), of(courses), of(reading_list_object), of(response_citation), of(mms_id), of(course_code_and_section), of(exists), of(barcode), of(reserves_library), of(reserves_location), of(citation_type), of(reading_list_valid), of(reading_list_section), of(add_item_valid), of(complete), of(item_policy)]) // The response from addToList
                   //reading_list_id, // Keep the original reading_list_id
                   //course_id, // Keep the original course_id
                   //mms_id, // Keep the original mms_id
@@ -512,7 +542,7 @@ ngOnInit() {
                   // Handle error, you might want to include the IDs in the error as well
                   let exists = false;
                   add_item_valid = false;
-                  return forkJoin([of(valid), of(courses), of(reading_list_object), of(error), of(mms_id), of(course_code_and_section), of(exists), of(barcode), of(reserves_library), of(reserves_location), of(citation_type), of(reading_list_valid), of(reading_list_section), of(add_item_valid), of(complete) ]) // The response from addToList
+                  return forkJoin([of(valid), of(courses), of(reading_list_object), of(error), of(mms_id), of(course_code_and_section), of(exists), of(barcode), of(reserves_library), of(reserves_location), of(citation_type), of(reading_list_valid), of(reading_list_section), of(add_item_valid), of(complete), of(item_policy) ]) // The response from addToList
                 })
               )
             }
@@ -521,7 +551,7 @@ ngOnInit() {
               let exists = true;
               add_item_valid = true;
               let userResult1 = object;
-              return forkJoin([of(valid), of(courses), of(reading_list_object), of(citations), of(mms_id), of(course_code_and_section), of(exists), of(barcode), of(reserves_library), of(reserves_location), of(citation_type), of(reading_list_valid), of(reading_list_section), of(add_item_valid), of(complete)]) // The response from addToList
+              return forkJoin([of(valid), of(courses), of(reading_list_object), of(citations), of(mms_id), of(course_code_and_section), of(exists), of(barcode), of(reserves_library), of(reserves_location), of(citation_type), of(reading_list_valid), of(reading_list_section), of(add_item_valid), of(complete), of(item_policy)]) // The response from addToList
               
 
             }
@@ -538,7 +568,7 @@ ngOnInit() {
             add_item_valid = false;
               let exists = false
               let userResult1 = object;
-              return forkJoin([of(valid), of(courses), of(reading_list_object), of(citations), of(mms_id), of(course_code_and_section), of(exists), of(barcode), of(reserves_library), of(reserves_location),  of(citation_type), of(reading_list_valid), of(reading_list_section), of(add_item_valid), of(complete)]);
+              return forkJoin([of(valid), of(courses), of(reading_list_object), of(citations), of(mms_id), of(course_code_and_section), of(exists), of(barcode), of(reserves_library), of(reserves_location),  of(citation_type), of(reading_list_valid), of(reading_list_section), of(add_item_valid), of(complete), of(item_policy)]);
               
 
             
@@ -565,6 +595,7 @@ ngOnInit() {
             let reading_list_section = object[12];
             let add_item_valid = object[13];
             let complete = object[14];
+            let item_policy = object[15];
             let item_move_valid: boolean = false;
             let moveable: boolean;
 
@@ -574,28 +605,28 @@ ngOnInit() {
 
             else{moveable = false}
 
-            console.log(reserves_library + reserves_location)
-           console.log(`${JSON.stringify(object)}`);
+            //console.log(reserves_library + reserves_location)
+          // console.log(`${JSON.stringify(object)}`);
 
-           console.log(valid);
-           console.log(reading_list_valid);
-           console.log(exists);
+          // console.log(valid);
+          // console.log(reading_list_valid);
+          // console.log(exists);
 
-            if (valid == true && reading_list_valid == true && exists == false && barcode && reserves_library && reserves_location){
+            if (valid == true && reading_list_valid == true && exists == false && barcode && ((reserves_library && reserves_location || item_policy))){
        
 
-              return this.itemService.updateItem(barcode, reserves_library, reserves_location).pipe(
+              return this.itemService.updateItem(barcode, reserves_library, reserves_location, item_policy).pipe(
 
                 concatMap(item => {
                   
                   if ('error' in item){
                     item_move_valid = false;
-                    return forkJoin([of(valid), of(courses), of(reading_list_object), of(citations), of(mms_id), of(course_code_and_section), of(exists), of(barcode), of(reserves_library), of(reserves_location), of(item_move_valid), of(reading_list_valid), of(reading_list_section), of(add_item_valid), of(moveable), of(complete)]);
+                    return forkJoin([of(valid), of(courses), of(reading_list_object), of(citations), of(mms_id), of(course_code_and_section), of(exists), of(barcode), of(reserves_library), of(reserves_location), of(item_move_valid), of(reading_list_valid), of(reading_list_section), of(add_item_valid), of(moveable), of(complete), of(item_policy)]);
 
                   }
                   else{
                     item_move_valid = true;
-                  return forkJoin([of(valid), of(courses), of(reading_list_object), of(citations), of(mms_id), of(course_code_and_section), of(exists), of(barcode), of(reserves_library), of(reserves_location), of(item_move_valid), of(reading_list_valid), of(reading_list_section), of(add_item_valid), of(moveable), of(complete)]);
+                  return forkJoin([of(valid), of(courses), of(reading_list_object), of(citations), of(mms_id), of(course_code_and_section), of(exists), of(barcode), of(reserves_library), of(reserves_location), of(item_move_valid), of(reading_list_valid), of(reading_list_section), of(add_item_valid), of(moveable), of(complete), of(item_policy)]);
                   }
                 })
               )
@@ -603,7 +634,7 @@ ngOnInit() {
 
             else {
               //return forkJoin([of(valid), of(userResult), of(userResult1), of(reading_list_id), of(course_id), of(mms_id), of(course_code), of(barcode), of(citation_type), of(reserves_library), of(reserves_location), of(userResult1)]);
-                return forkJoin([of(valid), of(courses), of(reading_list_object), of(citations), of(mms_id), of(course_code_and_section), of(exists), of(barcode), of(reserves_library), of(reserves_location), of(item_move_valid), of(reading_list_valid), of(reading_list_section), of(moveable), of(complete)]);
+                return forkJoin([of(valid), of(courses), of(reading_list_object), of(citations), of(mms_id), of(course_code_and_section), of(exists), of(barcode), of(reserves_library), of(reserves_location), of(item_move_valid), of(reading_list_valid), of(reading_list_section), of(add_item_valid), of(moveable), of(complete), of(item_policy)]);
 
             }
 
@@ -650,7 +681,7 @@ ngOnInit() {
               let skippedSummary = '';
             // console.log(JSON.stringify(results))
               results.forEach(res => {
-                console.log(`${JSON.stringify(res[0][15])}`)
+               // console.log(`${JSON.stringify(res[0][15])}`)
                
                 let reading_list_section: string = "Resources";
                     if(res[0][12]){
@@ -738,18 +769,45 @@ ngOnInit() {
       
                       }
                   if (res[0][10] == true){
+                    let policy: string;
+                    if(res[0][16] && res[0][16] != ""){
+                      policy = " and temporary item policy: " + JSON.stringify(res[0][16])
+
+                    }
+
+                    else{
+
+                      policy = ""
+                    }
 
                     
                    if (res[0][15] == false){
 
-                      updatedItems.push("course code: " + JSON.stringify(res[0][5])  + ", reading list: " + reading_list_name + ", section: " + JSON.stringify(reading_list_section) + ", MMS ID: " + res[0][4] + `citation: ${JSON.stringify(res[0][3].id)} - Item with barcode ${res[0][7]} sytemically moved to location ${res[0][9]} in library ${res[0][8]} but still needs to be physically moved \n`);
+                      let section: string;
+
+                      if (reading_list_section && reading_list_section != ""){
+
+                        section = ", section: " + JSON.stringify(reading_list_section)
+                      }
+
+                      else{
+
+                        section = ""
+                      }
+
+                    
+
+
+
+                      
+                      updatedItems.push("course code: " + JSON.stringify(res[0][5])  + ", reading list: " + reading_list_name + section + ", MMS ID: " + res[0][4] + `citation: ${JSON.stringify(res[0][3].id)} - Item with barcode ${res[0][7]} sytemically moved to temp location but still needs to be physically moved \n`);
                     successCount++;
                     this.nonCompletedReadingLists.push(res[0][5]);
                     }
 
                     else{
                     
-                    updatedItems.push("course code: " + JSON.stringify(res[0][5])  + ", reading list: " + reading_list_name + ", section: " + JSON.stringify(reading_list_section) + ", MMS ID: " + res[0][4] + `citation: ${JSON.stringify(res[0][3].id)} - Item with barcode ${res[0][7]} now in location ${res[0][9]} in library ${res[0][8]} \n`);
+                    updatedItems.push("course code: " + JSON.stringify(res[0][5])  + ", reading list: " + reading_list_name + ", section: " + JSON.stringify(reading_list_section) + ", MMS ID: " + res[0][4] + `citation: ${JSON.stringify(res[0][3].id)} - Item with barcode ${res[0][7]} moved to new location \n`);
                     successCount++;
                     }
 
@@ -1021,8 +1079,8 @@ completeReadingLists(){
       results.forEach(res => {
         this.completedReadingLists++;
         this.completedList.push(res['code']);
-        console.log(JSON.stringify(this.completedList));
-        console.log(JSON.stringify(this.completedReadingLists))
+        //console.log(JSON.stringify(this.completedList));
+        //console.log(JSON.stringify(this.completedReadingLists))
       })
         this.log(`${this.translate.instant("Number of Completed Reading Lists")}: ${this.completedReadingLists}`);
         this.log(`${this.translate.instant("Total Number of Non-Completed Reading Lists")}: ${this.uniqueNonComplete.length}`);
@@ -1054,7 +1112,7 @@ completeReadingLists(){
   
 
 print(data){
-  console.log(data)
+  //console.log(data)
   let file = new Blob([data], {type: 'text/plain'});
   saveAs(file, "Log Export.txt");
 

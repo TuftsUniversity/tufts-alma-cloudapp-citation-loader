@@ -170,7 +170,7 @@ private handleOtherError<T, O extends ObservableInput<any>>(
     //let previous_course_section: string;
     let previous_course_code_and_section: string;
 
-    if (previousEntry.length > 1){
+    if (previousEntry.length > 0){
     //if ('course' in previousEntry[previousEntry.length - 1]){
      // console.log(`previous course code: ${JSON.stringify(previousEntry[previousEntry.length - 1].course[0]['code'])}`)
       previous_course_code_and_section = previousCode[previousCode.length - 1]
@@ -292,7 +292,7 @@ isRepeat(listItem: String, lastItem: String, processed){
 
 
 }
-readingListLookup(course: any, course_code: any, course_id: any, previousReadingListCourseCode: any, previousRLEntry: any, processed: number, valid: boolean) {
+readingListLookup(course: any, course_code: any, course_id: any, previousReadingListCourseCode: any, previousRLEntry: any, processed: number, valid: boolean, pub_status: string, visibility: string) {
  
     if (valid){
     
@@ -393,7 +393,9 @@ readingListLookup(course: any, course_code: any, course_id: any, previousReading
         }
           else if ('link' in reading_lists){
             console.log(`No existing reading lists for ${course_code}  create one`)
-            return this.createList(reading_lists, course)  
+            console.log(pub_status);
+            console.log(visibility)
+            return this.createList(reading_lists, course, pub_status, visibility)  
           }
         // }
 
@@ -497,10 +499,10 @@ getReadingList(id: any){
 
 
 
-  createList(reading_list: any, course: any) {
+  createList(reading_list: any, course: any, pub_status: string, visibility: string) {
 
 
-    console.log(JSON.stringify(reading_list))
+    //console.log(JSON.stringify(reading_list))
           
   
     // try {
@@ -516,10 +518,10 @@ getReadingList(id: any){
         "value": "BeingPrepared"
       },
       "publishingStatus": {
-        "value": "PUBLISHED"
+        "value": "${pub_status}"
       },
       "visibility": {
-        "value":"RESTRICTED"
+        "value":"${visibility}"
       }
 
     }`;
@@ -598,7 +600,7 @@ getReadingList(id: any){
       }
 
 
-      console.log(complete)
+      //console.log(complete)
       let complete_setting: string;
       if (complete && complete == true){
 
@@ -609,7 +611,7 @@ getReadingList(id: any){
         complete_setting = "BeingPrepared"
       }
 
-      console.log(complete_setting)
+      //console.log(complete_setting)
 
         
       
@@ -636,7 +638,7 @@ getReadingList(id: any){
         }
       }`
 
-      
+
   
 
 
@@ -740,7 +742,7 @@ getCitations(almaReadingListId, almaCourseId) {
 
   }
 
-  updateItem(barcode: string, reserves_library: string, reserves_location: string){
+  updateItem(barcode: string, reserves_library: string, reserves_location: string, item_policy: string){
 
    // console.log("got into function");
    
@@ -754,14 +756,21 @@ getCitations(almaReadingListId, almaCourseId) {
       let url  = item['link'].replace(/.+?(\/bibs.+)/g, "$1");
       //console.log(url);
       // console.log(JSON.stringify(item));
+
+      if(reserves_library && reserves_location && reserves_library != "" && reserves_location != ""){
       item['holding_data']['in_temp_location'] = "true";
       item['holding_data']['temp_library']['value'] = reserves_library;
       item['holding_data']['temp_location']['value'] = reserves_location;
+      }
 
+      if (item_policy && item_policy != ""){
+
+        item['holding_data']['temp_policy']['value'] = item_policy;
+      }
       item = JSON.stringify(item)
       // item = JSON.parse(item);
       
-      console.log(JSON.stringify(item));
+      //console.log(JSON.stringify(item));
       //url= item['link'] ? item['link'].substring(item['link'].indexOf("/almaws/v1/")+10 ): url
       
       // if ('pid' in item['item_data']){
@@ -809,7 +818,7 @@ getCitations(almaReadingListId, almaCourseId) {
 
         item["status"]["value"] = "Complete";
         item["status"]["desc"] = "Complete";
-        console.log(JSON.stringify(item));
+        //console.log(JSON.stringify(item));
         return this.restService.call( {
           url: url,
           requestBody: item,
