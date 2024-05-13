@@ -20,10 +20,10 @@
 	"Help" :{
 		"Title": "Citation Loader Help",
 		"LookupKey": "Lookup Key: course_code",
-		"LookupKeyDescription": "The course is looked up by course code, which assumes that each course code in Alma is only attached to one course code.   If not, this app will not support your use case and would need to be redeveloped to include section ID",
+		"LookupKeyDescription": "The course is looked up by course code, which can come from the overlap analysis tool, and course section if your course code is not unique",
 		"MMSID": "mms_id",
-		"MMSIDDetails": "The MMS ID is used to add the citation to the reading list.  The app performs an MMS ID lookup beforehand to make sure it is valid"
-		
+		"MMSIDDetails": "The MMS ID is used to add the citation to the reading list.  The app performs an MMS ID lookup beforehand to make sure it is valid",
+		"OtherFields": "The following fields can also be used: \n    citation_type or Citation Type or secondary_type\n  -- this is the secondardy type of the citation. The primary type for non articles is always Book per Leganto\n   - barcode \n -- if the citation is physical and if you want it moved to the temporary reserves location defined in settings\n   - course code\n  -- At Tufts University where this was created, course codes uniquely identify both a course and a section.  If you institution shares course codes for e.g. different sections, you may want to redevelop this to receive section ID\n   - item_policy or Item Policy\n  -- this is the temporary item policy you want physical citations to move to as part of the temporary move.\n  -- Leave blank if none are desired",		
 		
 	}
 }
