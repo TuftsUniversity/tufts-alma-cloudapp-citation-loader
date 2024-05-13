@@ -20,9 +20,8 @@ Note that the decision was made not to allow the process to updated citation sta
   - if the citation is physical and if you want it moved to the temporary reserves location defined in settings
 - course code
   - At Tufts University where this was created, course codes uniquely identify both a course and a section.  If you institution shares course codes for e.g. different sections, you may want to redevelop this to receive section ID
-- MMS ID
-    - of citation
-    - this app is set up to create repository citations attached to existing bib records
+- section_info
+    - this is the reading list section, if desired
 - item_policy or Item Policy
   - this is the temporary item policy you want physical citations to move to as part of the temporary move.
   - Leave blank if none are desired
