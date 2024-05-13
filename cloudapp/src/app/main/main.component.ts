@@ -3,11 +3,12 @@ import { tap , concatMap, switchMap, flatMap, toArray, mergeAll, map, catchError
 import { Component, OnInit, OnDestroy,ViewChild } from '@angular/core';
 import { RestErrorResponse, CloudAppRestService, HttpMethod,CloudAppSettingsService, CloudAppEventsService, PageInfo} from '@exlibris/exl-cloudapp-angular-lib';
 import { TranslateService } from '@ngx-translate/core';
-import { Configuration } from "../models/configuration.model";
+
 import * as XLSX from 'xlsx';
 import * as FileSaver from 'file-saver';
 import { saveAs } from 'file-saver-es';
 import { Settings } from '../models/settings.model';
+import { Configuration } from "../models/configuration.model";
 
 import { ItemService } from './item.service';
 import {JSONPath} from 'jsonpath-plus';
