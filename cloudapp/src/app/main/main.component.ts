@@ -597,7 +597,7 @@ ngOnInit() {
             let add_item_valid = object[13];
             let complete = object[14];
             let item_policy = object[15];
-            let item_move_valid: boolean = false;
+            let item_move_valid: boolean = true;
             let moveable: boolean;
 
             if(reserves_library && reserves_location){
