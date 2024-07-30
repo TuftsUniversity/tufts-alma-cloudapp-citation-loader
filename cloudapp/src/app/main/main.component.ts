@@ -139,7 +139,7 @@ ngOnInit() {
         var arr = new Array();
         for(var i = 0; i != data.length; ++i) arr[i] = String.fromCharCode(data[i]);
         var bstr = arr.join("");
-        var workbook = XLSX.read(bstr, {type:"binary"});
+        var workbook = XLSX.read(bstr, {type:"binary", cellStyles: true });
         var first_sheet_name = workbook.SheetNames[0];
         var worksheet = workbook.Sheets[first_sheet_name];
         let courseIds = new Array();
@@ -147,7 +147,7 @@ ngOnInit() {
         // let updatedItems = new Array();
         let course_code = "Course Code"
         let mms_id = "MMS ID"
-        let items: any[] =XLSX.utils.sheet_to_json(worksheet,{defval:""});
+        let items: any[] =XLSX.utils.sheet_to_json(worksheet,{defval:"", skipHidden: true});
         items = items.sort((a, b) => {
           if (a.course_code < b.course_code) {
             return -1;
