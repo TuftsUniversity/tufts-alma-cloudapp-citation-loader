@@ -115,8 +115,23 @@ ngOnInit() {
   }
 
   onPageLoad = (pageInfo: PageInfo) => {
+    //var url = 
+
+      
+
   }
   loadExecl() {
+    this.restService.call(`/bibs/991019093176603851`)
+    .pipe(catchError(e=> {throw (e)})
+    ,
+    switchMap(bib => {
+
+     console.log(JSON.stringify(bib));
+
+      return bib;
+
+    })
+    )
     //console.log(this.config.mustConfig.library)
     //console.log(this.config.from.locations);
     //console.log(this.config.isChecked);

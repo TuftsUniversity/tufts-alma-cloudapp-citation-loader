@@ -13,13 +13,15 @@ import { MainComponent } from './main/main.component';
 import { MatIconModule } from '@angular/material/icon';
 import { HelpComponent } from './help/help.component';
 import { SettingsComponent } from "./settings/settings.component";
+import { LookupToolComponent } from './lookup-tool/lookup-tool.component';
 
 @NgModule({
   declarations: [
     AppComponent,
     MainComponent,
     HelpComponent,
-    SettingsComponent
+    SettingsComponent,
+    LookupToolComponent
   ],
   imports: [
     MaterialModule,
