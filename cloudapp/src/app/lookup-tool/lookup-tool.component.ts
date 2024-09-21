@@ -10,7 +10,7 @@ import {
 import * as XLSX from 'xlsx'; // Import XLSX library
 import { forkJoin, of } from 'rxjs';
 import { Router } from '@angular/router';
-import { catchError, finalize, map } from 'rxjs/operators';
+import { catchError, finalize, map, concatMap } from 'rxjs/operators';
 
 @Component({
   selector: 'app-lookup-tool',
@@ -60,9 +60,9 @@ export class LookupToolComponent implements OnInit {
 
         let items: any[] =XLSX.utils.sheet_to_json(worksheet,{defval:"", skipHidden: true});
         this.processRows(items);
-        items.forEach(citation => {
-          console.log(JSON.stringify(citation))
-        });
+        //items.forEach(citation => {
+        //  console.log(JSON.stringify(citation))
+        //});
         //var data = new Uint8Array(this.arrayBuffer);
         //var arr = new Array();
         //for(var i = 0; i != data.length; ++i) arr[i] = String.fromCharCode(data[i]);
@@ -87,22 +87,33 @@ export class LookupToolComponent implements OnInit {
   }
 
   processRows(json: any[]): void {
-    this.courseData = [];
+    this.courseData = []; // Reset courseData to start fresh
     let totalCitations = json.length;
     let processedCitations = 0;
-
-    json.forEach(row => {
-      const processedRow = this.processRow(row);
-      this.courseData.push(processedRow);
-
-      // Update progress bar
-      processedCitations++;
-      this.progressBarValue = (processedCitations / totalCitations) * 100;
-    });
-
-    // After processing, send data using the LookUpService
-    this.sendDataToLookUpService();
+  
+    // Use `of` to iterate over the json array and process each row one by one
+    of(...json)
+      .pipe(
+        concatMap(row => this.lookUpService.handleRequest(this.processRow(row)).pipe(
+          map((processedRow: any) => {
+            console.log(JSON.stringify(processedRow));
+            this.courseData.push(processedRow);
+            processedCitations++;
+            this.progressBarValue = (processedCitations / totalCitations) * 100; // Update progress
+          }),
+          catchError(error => {
+            console.error('Error processing row:', error);
+            return of(null); // Skip errors and continue processing other rows
+          })
+        )),
+        finalize(() => {
+          this.sendDataToLookUpService(); // Call this after all rows are processed
+        })
+      )
+      .subscribe();
   }
+  
+
 
   processRow(row: any): any {
     const authorFirst = row['Author First'] || '';
@@ -158,64 +169,262 @@ export class LookupToolComponent implements OnInit {
     return c_row;
   }
 
+  // sendDataToLookUpService(): void {
+
+  //   console.log(JSON.stringify(this.courseData));
+  //   this.courseData.reduce((promise, row) => {
+  //     return promise.then(() => {
+  //       // Call the LookUpService's handleRequest method instead of making an API call
+  //       return this.lookUpService.handleRequest(row).toPromise()
+  //         .then((response: any) => {
+  //           console.log('Service response:', response);
+  //         })
+  //         .catch((error) => {
+  //           console.error('Error:', error);
+  //           alert('Error: ' + error.message);
+  //         });
+  //     });
+  //   }, Promise.resolve()).then(() => {
+  //     this.generateExcel();
+  //   });
+  // }
   sendDataToLookUpService(): void {
-    this.courseData.reduce((promise, row) => {
-      return promise.then(() => {
-        // Call the LookUpService's handleRequest method instead of making an API call
-        return this.lookUpService.handleRequest(row).toPromise()
-          .then((response: any) => {
-            console.log('Service response:', response);
-          })
-          .catch((error) => {
-            console.error('Error:', error);
-            alert('Error: ' + error.message);
-          });
-      });
-    }, Promise.resolve()).then(() => {
-      this.generateExcel();
-    });
+    // Now that courseData is populated, generate the Excel file
+    if (this.courseData.length > 0) {
+      this.generateExcel(); // Generate the output Excel file
+    } else {
+      console.error('No data to generate Excel.');
+    }
   }
-
+  
   generateExcel(): void {
-    const data = this.courseData.map((row: any) => {
-      return {
-        'Title': row['Title - Input'] || '',
-        'Author': row['Author First - Input'] + ' ' + row['Author Last - Input'] || '',
-        'Contributor': row['Contributor First - Input'] + ' ' + row['Contributor Last - Input'] || '',
-        'Publisher': row['Publisher - Input'] || '',
-        'Date': row['Year - Input'] || '',
-        'Course Number': row['Course Number - Input'] || '',
-        'Course Semester': row['Course Semester - Input'] || '',
-        'Instructor Last Name': row['Instructor Last Name - Input'] || '',
-        'Format': row['Format - Input'] || ''
-      };
-    });
+    let data = [];
+    //(JSON.stringify(this.courseData));
 
-    //const ws = XLSX.utils.json_to_sheet(data, { cellText: true });
+    console.log(JSON.stringify(this.courseData))
+    if (this.courseData != null && this.courseData != undefined && this.courseData.length > 1) {
+      console.log("true")
+        this.courseData.forEach(result => {
+            let title, author, contributor, publisher, date, mms_id, isbn, version, course_code, course_section, library, library_location, call_number, barcode, description, format;
+
+            if (result['Title']) {
+                title = result['Title'];
+            }
+
+            if (result['Author']) {
+                author = result['Author'];
+            }
+
+            if (result['Contributor']) {
+                contributor = result['Contributor'];
+            }
+
+            if (result['Publisher']) {
+                publisher = result['Publisher'];
+            }
+
+            if (result['Year']) {
+                date = result['Year'];
+            }
+
+            if (result['MMS ID']) {
+                mms_id = result['MMS ID'];
+            }
+
+            if (result['ISBN']) {
+                isbn = result['ISBN'];
+            }
+
+            if (result['Version']) {
+                version = result['Version'];
+            }
+
+            if (result['course_code']) {
+                course_code = result['course_code'];
+            }
+
+            if (result['course_section']) {
+                course_section = result['course_section'];
+            }
+
+            if (result['Library']) {
+                library = result['Library'];
+            }
+
+            if (result['Location']) {
+                library_location = result['Location'];
+            }
+
+            if (result['Call Number']) {
+                call_number = result['Call Number'];
+            }
+
+            if (result['Barcode']) {
+                barcode = JSON.stringify(result['Barcode']);
+            }
+
+            if (result['Description']) {
+                description = JSON.stringify(result['Description']);
+            }
+
+            if (result['Returned Format']) {
+                format = result['Returned Format'];
+            }
+
+            let row = {
+                'Title': title,
+                'Author': author,
+                'Contributor': contributor,
+                'Publisher': publisher,
+                'Date': date,
+                'MMS ID': mms_id,
+                'ISBN': isbn,
+                'Version': version,
+                'course_code': course_code,
+                'course_section': course_section,
+                'Returned Format': format,
+                'Library': library,
+                'Location': library_location,
+                'Call Number': call_number,
+                'Barcode': barcode,
+                //'Description': description,
+                'Citation Type': '',
+                'section_info': result['section_info'] || '',
+                'Item Policy': result['item_policy'] || result['Item Policy'] || ''
+            };
+
+            var newValues = {};
+            for (var k in result) {
+                if (!(row.hasOwnProperty(k)) && k != "Description") {
+                    if (result.hasOwnProperty(k)) {
+                        newValues[k] = result[k];
+                    }
+                }
+            }
+
+            var newRow = Object.assign(newValues, row);
+            console.log(JSON.stringify(newRow));
+            data.push(newRow);
+        });
+    } else {
+        // Handling the case where there's only one result
+        let title, author, contributor, publisher, date, mms_id, isbn, version, course_code, course_section, library, library_location, call_number, barcode, description, format;
+
+        let result = this.courseData[0]; // Assuming the first and only entry
+
+        if (result['Title']) {
+            title = result['Title'];
+        }
+
+        if (result['Author']) {
+            author = result['Author'];
+        }
+
+        if (result['Contributor']) {
+            contributor = result['Contributor'];
+        }
+
+        if (result['Publisher']) {
+            publisher = result['Publisher'];
+        }
+
+        if (result['Year']) {
+            date = result['Year'];
+        }
+
+        if (result['MMS ID']) {
+            mms_id = result['MMS ID'];
+        }
+
+        if (result['ISBN']) {
+            isbn = result['ISBN'];
+        }
+
+        if (result['Version']) {
+            version = result['Version'];
+        }
+
+        if (result['course_code']) {
+            course_code = result['course_code'];
+        }
+
+        if (result['course_section']) {
+            course_section = result['course_section'];
+        }
+
+        if (result['Library']) {
+            library = result['Library'];
+        }
+
+        if (result['Location']) {
+            library_location = result['Location'];
+        }
+
+        if (result['Call Number']) {
+            call_number = result['Call Number'];
+        }
+
+        if (result['Barcode']) {
+            barcode = JSON.stringify(result['Barcode']);
+        }
+
+        if (result['Description']) {
+            description = JSON.stringify(result['Description']);
+        }
+
+        if (result['Returned Format']) {
+            format = result['Returned Format'];
+        }
+
+        let row = {
+            'Title': title,
+            'Author': author,
+            'Contributor': contributor,
+            'Publisher': publisher,
+            'Date': date,
+            'MMS ID': mms_id,
+            'ISBN': isbn,
+            'Version': version,
+            'Course Code': course_code,
+            'Course Section': course_section,
+            'Returned Format': format,
+            'Library': library,
+            'Location': library_location,
+            'Call Number': call_number,
+            'Barcode': barcode,
+            //'Description': description,
+            'Citation Type': '',
+            'section_info': '',
+            'Item Policy': ''
+        };
+
+        var newValues = {};
+        for (var k in result) {
+            if (!(row.hasOwnProperty(k)) && k != "Description") {
+                if (result.hasOwnProperty(k)) {
+                    newValues[k] = result[k];
+                }
+            }
+        }
+
+        var newRow = Object.assign(newValues, row);
+        console.log(JSON.stringify(newRow));
+        data.push(newRow);
+    }
+    // let finalData = [];
+    // data.forEach(result => {
+    //   JSON.stringify(result);
+    //   finalData.push(result["0"])
+
+    // });
+    console.log(JSON.stringify(data));
+    // Generate the Excel file with the collected data
     const ws = XLSX.utils.json_to_sheet(data);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Results');
 
-    const range = XLSX.utils.decode_range(ws['!ref']);
-    let barcodeColIndex = -1;
-
-    // Find and fix Barcode column formatting if present
-    for (let C = range.s.c; C <= range.e.c; ++C) {
-      const cell = ws[XLSX.utils.encode_cell({ r: range.s.r, c: C })];
-      if (cell && cell.v === 'Barcode') {
-        barcodeColIndex = C;
-        break;
-      }
-    }
-    for (let R = range.s.r + 1; R <= range.e.r; ++R) {
-      const cell = ws[XLSX.utils.encode_cell({ r: R, c: barcodeColIndex })];
-      if (cell && cell.v) {
-        cell.t = 's';
-        cell.z = '@';
-      }
-    }
-
     // Write the file
     XLSX.writeFile(wb, 'output.xlsx');
-  }
+}
+
 }
