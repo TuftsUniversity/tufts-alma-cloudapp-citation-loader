@@ -2,7 +2,7 @@ import { Injectable } from '@angular/core';
 import { CloudAppRestService, CloudAppEventsService  } from '@exlibris/exl-cloudapp-angular-lib';
 import { HttpClient } from '@angular/common/http';
 
-import { of, throwError } from 'rxjs';
+import { of, throwError, forkJoin, Observable } from 'rxjs';
 import { map, concatMap, catchError } from 'rxjs/operators';
 
 @Injectable({
@@ -29,7 +29,7 @@ handleRequest(item: any) {
   return this.searchPrimoApi(item).pipe(
     concatMap(result => {
       console.log(JSON.stringify(result));
-      return result;
+      return of(result);
     }),
     
   
@@ -109,7 +109,7 @@ handleRequest(item: any) {
   //     })
   //   );
   // }
-  private searchPrimoApi(row: any) {
+  public searchPrimoApi(row: any) {
     // Handle the inputs and transform them as in the PHP code
     let title = row['Title - Input'] || '';
     let authorFirst = row['Author First - Input'] || '';
@@ -124,11 +124,13 @@ handleRequest(item: any) {
     let format = row['Format - Input'] || '';
   
     // Process the title string (remove unwanted characters, punctuation, and format)
-    if (title) {
-      title = title.replace(/[,:;."\']/g, '');  // Remove punctuation
-      title = title.replace(/[-]/g, '');        // Replace hyphens with spaces
-      title = title.replace(/[&]/g, '');        // Replace ampersands with spaces
-    }
+    // if (title) {
+    //   title = title.replace(/[,:;."\']/g, '');  // Remove punctuation
+    //   title = title.replace(/[-]/g, '');        // Replace hyphens with spaces
+    //   title = title.replace(/[&]/g, '');        // Replace ampersands with spaces
+    // }
+
+    
   
     let query = ``; // Build the SRU query
   
@@ -192,40 +194,49 @@ handleRequest(item: any) {
     //   })
     // );
 
-    return this.http.get(`${this.sruUrl.alma}/view/sru/${this.institutionCode}?version=1.2&operation=searchRetrieve&recordSchema=marcxml${query}`, { responseType: 'text' }).pipe(
+    console.log(query);
+ // Make SRU API call
+  // Make the REST API call to SRU
+  return this.http.get(`${this.sruUrl.alma}/view/sru/${this.institutionCode}?version=1.2&operation=searchRetrieve&recordSchema=marcxml${query}`, { responseType: 'text' })
+    .pipe(
       concatMap((xmlResponse: string) => this.parseXMLResponse(xmlResponse)),
       concatMap(parsedData => this.processMARCData(parsedData, row)),
       concatMap(marcResults => {
-        return this.getCourseData(row).pipe(
-          map(courseData => {
-            let combinedResults = [];
-            marcResults.forEach(marcResult => {
-              // For each MARC result, loop through all course data and create combinations
-              courseData.forEach(course => {
-                let combinedRow = {
-                  ...marcResult, // Spread the MARC data
-                  'course_code': course['course_code'], // Add course code
-                  'course_section': course['course_section'] // Add course section
-                };
-                combinedResults.push(combinedRow); // Add each combination to the results array
-              });
-            });
-            return combinedResults; // Return the fully combined results
-          })
+        // Collect course data for each MARC result
+        const courseDataObservables = marcResults.map((marcResult: any) =>
+          this.getCourseData(row).pipe(
+            map((courseData: any[]) => courseData.map(course => ({
+              ...marcResult,  // Combine MARC data with course data
+              'course_code': course['course_code'],
+              'course_section': course['course_section']
+            })))
+          )
+        );
+        return forkJoin(courseDataObservables).pipe(
+          map((results: any[]) => results.reduce((acc, val) => acc.concat(val), []))  // Flatten results
         );
       }),
       catchError(error => {
         console.error('SRU API Error:', error);
-        console.log(query);
         return throwError(error);
       })
     );
-    
-    
-    
+}
 
-  
-  }
+// private processMARCData(xmlDoc: Document, row: any) {
+// const records = xmlDoc.getElementsByTagName('record');
+// const results = [];
+
+// // Handle both physical and electronic formats in extractMARCData
+// for (let i = 0; i < records.length; i++) {
+//   const record = records[i];
+//   results.push(this.extractMARCData(record, row));
+// }
+
+// return forkJoin(results).pipe(
+//   map(flattened => flattened.reduce((acc, val) => acc.concat(val), []))
+// );
+// }
   
    
   // Function to return results when no matching title is found
@@ -251,7 +262,7 @@ handleRequest(item: any) {
 
 
   private parseXMLResponse(xmlResponse: string): Promise<Document> {
-    //console.log(JSON.stringify(xmlResponse))
+    console.log(JSON.stringify(xmlResponse))
     return new Promise((resolve, reject) => {
       const parser = new DOMParser();
       const xmlDoc = parser.parseFromString(xmlResponse, 'application/xml');
@@ -269,166 +280,23 @@ handleRequest(item: any) {
 
 
   
-  private processMARCData(xmlDoc: Document, row: any) {
-    const results = [];
-    const records = xmlDoc.getElementsByTagName('record'); // Fetch all 'record' elements
-  
-    if (records.length > 0) {
-      for (let i = 0; i < records.length; i++) {
-        const record = records[i];
-        const extractedData = this.extractMARCData(record);
-        results.push(extractedData);
-  
-        // Copy any additional row fields that aren't part of the standard MARC fields
-        Object.keys(row).forEach(key => {
-          if (!results[i].hasOwnProperty(key)) {
-            results[i][key] = row[key];
-          }
-        });
-      }
-    } else {
-      // No records found
-      results.push({
-        Title: `No results for ${row['Title'] || ''}`,
-        Author: `No results for ${row['Author'] || ''}`,
-        Returned_Format: 'N/A',
-      });
-  
-      // Copy additional fields from the row into the result
-      Object.keys(row).forEach(key => {
-        if (!results[results.length - 1].hasOwnProperty(key)) {
-          results[results.length - 1][key] = row[key];
-        }
-      });
-    }
-   // console.log(JSON.stringify(results))
-    return of(results);
-  }
-
-  private extractMARCData(record: Element) {
-    const xpath = (tag: string, subfieldCode: string = '') => {
-      const field = record.querySelector(`datafield[tag="${tag}"] subfield[code="${subfieldCode}"]`);
-      return field ? field.textContent : '';
-    };
-  
-    return {
-      Title: `${xpath('245', 'a')} ${xpath('245', 'b')}`.trim(),
-      Author: xpath('100', 'a') || xpath('700', 'a') || xpath('710', 'a'),
-      Publisher: xpath('264', 'b'),
-      Year: xpath('264', 'c'),
-      MMS_ID: xpath('AVA', '0'), // Physical item MMS ID
-      ISBN: xpath('020', 'a'),
-      Library: xpath('AVA', 'q'),
-      Location: xpath('AVA', 'c'),
-      Call_Number: xpath('AVA', 'd'),
-      Barcode: xpath('AVA', 'f'),
-      //Description: xpath('520', 'a'),
-      Returned_Format: 'Physical', // Default for now
-    };
-  }
-  
-
-  // private processMARCData(parsedData: any, row: any) {
+  // private processMARCData(xmlDoc: Document, row: any) {
   //   const results = [];
-  //   const records = parsedData['searchRetrieveResponse']?.records?.record || [];
-
+  //   const records = xmlDoc.getElementsByTagName('record'); // Fetch all 'record' elements
+  
   //   if (records.length > 0) {
-  //     const barcodeArray = [];
-  //     const electronicRecordArray = [];
-
-  //     records.forEach(record => {
-  //       const document = new DOMParser().parseFromString(record['recordData'], 'application/xml');
-  //       const xpath = (path: string) => document.querySelector(path)?.textContent || '';
-
-  //       const format = row['Format'] || '';
-
-  //       // Handle physical items
-  //       if (format === '' || format.toLowerCase() === 'physical') {
-  //         const physMmsId = xpath('datafield[tag="AVA"] subfield[code="0"]');
-  //         if (physMmsId) {
-  //           const itemQuery = `/bibs/${physMmsId}/holdings/ALL/items`;
-
-  //           return this.restService.call(itemQuery).pipe(
-  //             map((items: any) => {
-  //               if (items.total_record_count > 0) {
-  //                 items.item.forEach(item => {
-  //                   let library = item['item_data']['library']['desc'];
-  //                   let location = item['item_data']['location']['desc'];
-  //                   if (item['holding_data']['in_temp_location']) {
-  //                     library = item['holding_data']['temp_library']['desc'];
-  //                     location = item['holding_data']['temp_location']['desc'];
-  //                   }
-
-  //                   // Avoid duplicate barcodes
-  //                   if (!barcodeArray.includes(item['item_data']['barcode'])) {
-  //                     barcodeArray.push(item['item_data']['barcode']);
-  //                   } else {
-  //                     return;
-  //                   }
-
-  //                   const author = xpath('datafield[tag="100"] subfield[code="a"]') ||
-  //                                  xpath('datafield[tag="700"] subfield[code="a"]') || 
-  //                                  xpath('datafield[tag="710"] subfield[code="a"]');
-
-  //                   results.push({
-  //                     Title: xpath('datafield[tag="245"] subfield[code="a"]') + xpath('datafield[tag="245"] subfield[code="b"]'),
-  //                     Author: author,
-  //                     Publisher: xpath('datafield[tag="264"] subfield[code="b"]'),
-  //                     Year: xpath('datafield[tag="264"] subfield[code="c"]'),
-  //                     MMS_ID: physMmsId,
-  //                     ISBN: xpath('datafield[tag="020"] subfield[code="a"]'),
-  //                     Library: library,
-  //                     Location: location,
-  //                     Call_Number: item['holding_data']['permanent_call_number'] || '',
-  //                     Barcode: item['item_data']['barcode'],
-  //                     Description: item['item_data']['description'],
-  //                     Returned_Format: 'Physical'
-  //                   });
-
-  //                   // Copy additional fields from the row into the result
-  //                   Object.keys(row).forEach(key => {
-  //                     if (!results[results.length - 1].hasOwnProperty(key)) {
-  //                       results[results.length - 1][key] = row[key];
-  //                     }
-  //                   });
-  //                 });
-  //               }
-  //               return results;
-  //             })
-  //           );
+  //     for (let i = 0; i < records.length; i++) {
+  //       const record = records[i];
+  //       const extractedData = this.extractMARCData(record);
+  //       results.push(extractedData);
+  
+  //       // Copy any additional row fields that aren't part of the standard MARC fields
+  //       Object.keys(row).forEach(key => {
+  //         if (!results[i].hasOwnProperty(key)) {
+  //           results[i][key] = row[key];
   //         }
-  //       }
-
-  //       // Handle electronic items
-  //       if (format === '' || format.toLowerCase() === 'electronic') {
-  //         const eMmsId = xpath('datafield[tag="AVE"] subfield[code="0"]');
-  //         if (eMmsId && !electronicRecordArray.includes(`${eMmsId}Electronic`)) {
-  //           electronicRecordArray.push(`${eMmsId}Electronic`);
-
-  //           const author = xpath('datafield[tag="100"] subfield[code="a"]') || 
-  //                          xpath('datafield[tag="110"] subfield[code="a"]') ||
-  //                          xpath('datafield[tag="700"] subfield[code="a"]') ||
-  //                          xpath('datafield[tag="710"] subfield[code="a"]');
-
-  //           results.push({
-  //             Title: xpath('datafield[tag="245"] subfield[code="a"]') + xpath('datafield[tag="245"] subfield[code="b"]'),
-  //             Author: author,
-  //             Publisher: xpath('datafield[tag="264"] subfield[code="b"]'),
-  //             Year: xpath('datafield[tag="264"] subfield[code="c"]'),
-  //             MMS_ID: eMmsId,
-  //             ISBN: xpath('datafield[tag="020"] subfield[code="a"]'),
-  //             Returned_Format: 'Electronic'
-  //           });
-
-  //           // Copy additional fields from the row into the result
-  //           Object.keys(row).forEach(key => {
-  //             if (!results[results.length - 1].hasOwnProperty(key)) {
-  //               results[results.length - 1][key] = row[key];
-  //             }
-  //           });
-  //         }
-  //       }
-  //     });
+  //       });
+  //     }
   //   } else {
   //     // No records found
   //     results.push({
@@ -436,7 +304,7 @@ handleRequest(item: any) {
   //       Author: `No results for ${row['Author'] || ''}`,
   //       Returned_Format: 'N/A',
   //     });
-
+  
   //     // Copy additional fields from the row into the result
   //     Object.keys(row).forEach(key => {
   //       if (!results[results.length - 1].hasOwnProperty(key)) {
@@ -444,9 +312,292 @@ handleRequest(item: any) {
   //       }
   //     });
   //   }
-
+  //  // console.log(JSON.stringify(results))
   //   return of(results);
   // }
+
+
+  private extractMARCData(record: Element, row: any) {
+    const xpath = (tag: string, subfieldCode: string = '') => {
+      const field = record.querySelector(`datafield[tag="${tag}"] subfield[code="${subfieldCode}"]`);
+      return field ? field.textContent : '';
+    };
+  
+    const format = row['Format - Input'] || '';
+    const results: any[] = [];
+    const barcodeArray: string[] = [];
+    const electronicRecordArray: string[] = [];
+  
+    // Create an observable array to handle both physical and electronic item results
+    const observables: any[] = [];
+  
+    // Handle physical items
+    if (format === '' || format.toLowerCase() === 'physical') {
+      const physMmsId = xpath('AVA', '0');
+      if (physMmsId) {
+        const itemQuery = `/bibs/${physMmsId}/holdings/ALL/items`;
+  
+        // Push the physical item observable into the array
+        observables.push(
+          this.restService.call(itemQuery).pipe(
+            concatMap((items: any) => {
+              if (items.total_record_count > 0) {
+                items.item.forEach(item => {
+                  let library = item['item_data']['library']['desc'];
+                  let location = item['item_data']['location']['desc'];
+                  if (item['holding_data']['in_temp_location']) {
+                    library = item['holding_data']['temp_library']['desc'];
+                    location = item['holding_data']['temp_location']['desc'];
+                  }
+  
+                  // Avoid duplicate barcodes
+                  if (!barcodeArray.includes(item['item_data']['barcode'])) {
+                    barcodeArray.push(item['item_data']['barcode']);
+                  } else {
+                    return;
+                  }
+  
+                  const author = xpath('100', 'a') || xpath('700', 'a') || xpath('710', 'a');
+                  results.push({
+                    Title: xpath('245', 'a') + ' ' + xpath('245', 'b'),
+                    Author: author,
+                    Publisher: xpath('264', 'b'),
+                    Year: xpath('264', 'c'),
+                    'MMS ID': physMmsId,
+                    ISBN: xpath('020', 'a'),
+                    Library: library,
+                    Location: location,
+                    'Call Number': item['holding_data']['permanent_call_number'] || '',
+                    Barcode: item['item_data']['barcode'],
+                    Description: item['item_data']['description'],
+                    'Returned Format': 'Physical'
+                  });
+                });
+              }
+              return of(results);
+            })
+          )
+        );
+      }
+    }
+  
+    // Handle electronic items synchronously
+    if (format === '' || format.toLowerCase() === 'electronic') {
+      const eMmsId = xpath('AVE', '0');
+      if (eMmsId && !electronicRecordArray.includes(`${eMmsId}Electronic`)) {
+        electronicRecordArray.push(`${eMmsId}Electronic`);
+  
+        const author = xpath('100', 'a') || xpath('110', 'a') || xpath('700', 'a') || xpath('710', 'a');
+        results.push({
+          Title: xpath('245', 'a') + ' ' + xpath('245', 'b'),
+          Author: author,
+          Publisher: xpath('264', 'b'),
+          Year: xpath('264', 'c'),
+          'MMS ID': eMmsId,
+          ISBN: xpath('020', 'a'),
+          'Returned Format': 'Electronic'
+        });
+      }
+    }
+  
+    // Combine the results of both physical and electronic items
+    if (observables.length > 0) {
+      // If there are any asynchronous physical item observables, wait for all to complete
+      return of(results).pipe(
+        concatMap(initialResults => 
+          forkJoin(observables).pipe(
+            concatMap((finalResults: any[]) => {
+              // Check if finalResults is an array and flatten it using reduce
+              const flattenedResults = Array.isArray(finalResults) ? finalResults.reduce((acc, val) => acc.concat(val), []) : [];
+              return [...initialResults, ...flattenedResults]; // Merge initialResults and flattened finalResults
+            })
+          )
+        )
+      );
+    } else {
+      // If no physical items, return the results immediately
+      return of(results);
+    }
+  }
+  
+  // private extractMARCData(record: Element, row: any) {
+  //   const xpath = (tag: string, subfieldCode: string = '') => {
+  //     const field = record.querySelector(`datafield[tag="${tag}"] subfield[code="${subfieldCode}"]`);
+  //     return field ? field.textContent : '';
+  //   };
+  
+  //   const format = row['Format - Input'] || '';
+  //   const results: any[] = [];
+  //   const barcodeArray: string[] = [];
+  //   const electronicRecordArray: string[] = [];
+  //   console.log(record);
+  //   // Handle physical items
+  //   if (format === '' || format.toLowerCase() === 'physical') {
+  //     const physMmsId = xpath('AVA', '0');
+  //     if (physMmsId) {
+  //       console.log(physMmsId);
+  //       const itemQuery = `/bibs/${physMmsId}/holdings/ALL/items`;
+  
+  //       return this.restService.call(itemQuery).pipe(
+  //         map((items: any) => {
+  //           console.log(JSON.stringify(items));
+  //           if (items.total_record_count > 0) {
+  //             console.log("there are items");
+  //             items.item.forEach(item => {
+  //               let library = item['item_data']['library']['desc'];
+  //               let location = item['item_data']['location']['desc'];
+  //               if (item['holding_data']['in_temp_location']) {
+  //                 library = item['holding_data']['temp_library']['desc'];
+  //                 location = item['holding_data']['temp_location']['desc'];
+  //               }
+  
+  //               // Avoid duplicate barcodes
+  //               if (!barcodeArray.includes(item['item_data']['barcode'])) {
+  //                 barcodeArray.push(item['item_data']['barcode']);
+  //               } else {
+  //                 return;
+  //               }
+  
+  //               const author = xpath('100', 'a') || xpath('700', 'a') || xpath('710', 'a');
+  //               results.push({
+  //                 Title: xpath('245', 'a') + ' ' + xpath('245', 'b'),
+  //                 Author: author,
+  //                 Publisher: xpath('264', 'b'),
+  //                 Year: xpath('264', 'c'),
+  //                 'MMS ID': physMmsId,
+  //                 ISBN: xpath('020', 'a'),
+  //                 Library: library,
+  //                 Location: location,
+  //                 'Call Number': item['holding_data']['permanent_call_number'] || '',
+  //                 Barcode: item['item_data']['barcode'],
+  //                 Description: item['item_data']['description'],
+  //                 'Returned Format': 'Physical'
+  //               });
+  //             });
+  //           }
+  //           return results;
+  //         })
+  //       );
+  //     }
+  //   }
+  
+  //   // Handle electronic items
+  //   if (format === '' || format.toLowerCase() === 'electronic') {
+  //     const eMmsId = xpath('AVE', '0');
+  //     if (eMmsId && !electronicRecordArray.includes(`${eMmsId}Electronic`)) {
+  //       electronicRecordArray.push(`${eMmsId}Electronic`);
+  
+  //       const author = xpath('100', 'a') || xpath('110', 'a') || xpath('700', 'a') || xpath('710', 'a');
+  //       results.push({
+  //         Title: xpath('245', 'a') + ' ' + xpath('245', 'b'),
+  //         Author: author,
+  //         Publisher: xpath('264', 'b'),
+  //         Year: xpath('264', 'c'),
+  //         'MMS ID': eMmsId,
+  //         ISBN: xpath('020', 'a'),
+  //         'Returned Format': 'Electronic'
+  //       });
+  //     }
+  //   }
+  //   console.log(JSON.stringify(results));
+  //   return of(results);
+  // }
+  
+  // private searchPrimoApi(row: any) {
+  //   let title = row['Title - Input'] || '';
+  //   let authorLast = row['Author Last - Input'] || '';
+  //   let year = encodeURIComponent(row['Year - Input'] || '');
+  
+  //   let query = ``;  // Construct the SRU query
+  //   if (title) {
+  //     query += `&query=alma.title==%22*${encodeURIComponent(title)}*%22`;
+  //   } else {
+  //     return this.noResultsResponse(row, 'Title');
+  //   }
+  
+  //   return this.http.get(`${this.sruUrl.alma}/view/sru/${this.institutionCode}?version=1.2&operation=searchRetrieve&recordSchema=marcxml${query}`, { responseType: 'text' })
+  //     .pipe(
+  //       concatMap((xmlResponse: string) => this.parseXMLResponse(xmlResponse)),
+  //       concatMap(parsedData => this.processMARCData(parsedData, row)),
+  //       concatMap(marcResults => {
+  //         const courseDataObservables = marcResults.map(marcResult =>
+  //           this.getCourseData(row).pipe(
+  //             map(courseData => courseData.map(course => ({
+  //               ...marcResult,  // Combine MARC data with course data
+  //               'course_code': course['course_code'],
+  //               'course_section': course['course_section']
+  //             })))
+  //           )
+  //         );
+  //         return forkJoin(courseDataObservables).pipe(
+  //           map(results => results.reduce((acc, val) => acc.concat(val), []))  // Flatten results
+  //         );
+  //       }),
+  //       catchError(error => {
+  //         console.error('SRU API Error:', error);
+  //         return throwError(error);
+  //       })
+  //     );
+  // }
+  
+  private processMARCData(xmlDoc: Document, row: any): Observable<any[]> {
+    const records = xmlDoc.getElementsByTagName('record');
+    const results: Observable<any>[] = [];
+  
+    // Handle both physical and electronic formats in extractMARCData
+    for (let i = 0; i < records.length; i++) {
+      const record = records[i];
+      results.push(this.extractMARCData(record, row));
+    }
+  
+    return forkJoin(results).pipe(
+      map((flattened: any[]) => flattened.reduce((acc, val) => acc.concat(val), []))
+    );
+  }
+  
+
+  // private processMARCData(xmlDoc: Document, row: any) {
+  //   const results: any[] = [];
+  //   const records = xmlDoc.getElementsByTagName('record'); // Fetch all 'record' elements
+  //   console.log(records.length);
+  //   if (records.length > 0) {
+  //     for (let i = 0; i < records.length; i++) {
+  //       const record = records[i];
+  //       this.extractMARCData(record, row).subscribe((extractedData: any) => {
+  //         console.log(JSON.stringify(extractedData));
+  //         results.push(...extractedData);
+  //         console.log(JSON.stringify(results));
+  //         // Copy additional fields from the input row into each result
+  //         results.forEach(result => {
+  //           Object.keys(row).forEach(key => {
+  //             if (!result.hasOwnProperty(key)) {
+  //               result[key] = row[key];
+  //             }
+  //           });
+  //         });
+  //       });
+  //       console.log(JSON.stringify(results));
+  //       return of(results);
+  //     }
+  //   } else {
+  //     // No records found, return placeholder result
+  //     results.push({
+  //       Title: `No results for ${row['Title - Input'] || ''}`,
+  //       Author: `No results for ${row['Author - Input'] || ''}`,
+  //       'Returned Format': 'N/A'
+  //     });
+  
+  //     // Copy additional fields from the row into the result
+  //     Object.keys(row).forEach(key => {
+  //       if (!results[0].hasOwnProperty(key)) {
+  //         results[0][key] = row[key];
+  //       }
+  //     });
+  //   }
+  //    console.log(JSON.stringify(results));
+  //   return of(results);
+  // }
+  
 
   // private getCourseData(row: any) {
   //   const courseURL = `/courses?q=name~${row['Course Semester']}%20AND%20-${row['Course Number']}&format=json`;
@@ -466,19 +617,21 @@ handleRequest(item: any) {
 private getCourseData(row: any) {
   let courseURL = ""
   if ('Instructor Last Name - Input' in row){
-
-    courseURL = `/courses?q=name~${row['Course Semester - Input']}-${row['Course Number - Input']}&format=json`;
-  }
+    //courseURL = `/courses?q=name~${row['Course Semester - Input']}-${row['Course Number - Input']}%20AND%20instructors~${row['Instructor Last Name - Input']}&format=json`;
+      courseURL = `/courses?q=name~${row['Course Semester - Input']}-${row['Course Number - Input']}%20AND%20instructors~${row['Instructor Last Name - Input']}&format=json`
+      }
 
   else {
-    courseURL = `/courses?q=name~${row['Course Semester - Input']}-${row['Course Number - Input']}"%20AND%20instructors~"${row['Instructor Last Name - Input']}&format=json`;
-  }
+    //courseURL = `/courses?q=name~${row['Course Semester - Input']}-${row['Course Number - Input']}&format=json`;
+    courseURL = `/courses?q=name~${row['Course Semester - Input']}-${row['Course Number - Input']}&format=json`
+ 
+      }
   
-  //console.log(courseURL);
+  console.log(courseURL);
   return this.restService.call(courseURL).pipe(
-    map((response: any) => {
+    concatMap((response: any) => {
 
-     // console.log(JSON.stringify(response));
+      console.log(JSON.stringify(response));
         let courseArray = [];
         // Assuming the API returns a list of courses with sections
         if ('course' in response){
@@ -493,16 +646,12 @@ private getCourseData(row: any) {
 
       else{
         courseArray = [{
-          'Title': `No results for ${row['Title - Input'] || ''}`,
-          'Author Last': `No results for ${row['Author Last - Input'] || ''}`,
-          'Publisher': `No results for ${row['Publisher - Input'] || ''}`,
-          'Year': `No results for ${row['Year - Input'] || ''}`,
-          'course_code': row['Course Number - Input'] || '',
-          'Returned Format': 'N/A'
+          'course_code': "no results for course search",
+          'course_section': "no results for course search"
         }];
 
       }
-        return courseArray;
+        return of(courseArray);
       ;  // Return the array of courses with code and section
     }),
     catchError(error => {

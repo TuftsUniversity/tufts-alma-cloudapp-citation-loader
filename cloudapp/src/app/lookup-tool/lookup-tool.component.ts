@@ -8,9 +8,9 @@ import {
   CloudAppEventsService,
 } from "@exlibris/exl-cloudapp-angular-lib";
 import * as XLSX from 'xlsx'; // Import XLSX library
-import { forkJoin, of } from 'rxjs';
+import { forkJoin, of, from } from 'rxjs';
 import { Router } from '@angular/router';
-import { catchError, finalize, map, concatMap } from 'rxjs/operators';
+import { catchError, finalize, map, concatMap, tap } from 'rxjs/operators';
 
 @Component({
   selector: 'app-lookup-tool',
@@ -22,6 +22,8 @@ export class LookupToolComponent implements OnInit {
   progressBarValue: number = 0;
   files: File[] = [];
   arrayBuffer:any;
+  loading: Boolean;
+  
   constructor(
     private lookUpService: LookUpService,
     private restService: CloudAppRestService,
@@ -86,33 +88,72 @@ export class LookupToolComponent implements OnInit {
     this.processRows(json);
   }
 
-  processRows(json: any[]): void {
-    this.courseData = []; // Reset courseData to start fresh
-    let totalCitations = json.length;
-    let processedCitations = 0;
+//   processRows(json: any[]): void {
+//     this.courseData = []; // Reset courseData to start fresh
+//     let totalCitations = json.length;
+//     let processedCitations = 0;
+//     this.loading = true;
+    
+//     of(...json)
+//       .pipe(
+//         concatMap(row => 
+//           this.lookUpService.handleRequest(this.processRow(row)).pipe(
+//             concatMap((processedRow: any) => {
+//               this.courseData.push(processedRow);  // Push each row's result into courseData
+//               processedCitations++;
+//               this.progressBarValue = (processedCitations / totalCitations) * 100; // Update progress
+//               return of(processedRow);  // Return processed row for sequential processing
+//             }),
+//             catchError(error => {
+//               console.error('Error processing row:', error);
+//               return of(null); // Skip errors and continue processing other rows
+//             })
+//           )
+//         )
+
+        
+//       )
+//       .subscribe({
+//         //next: (processedRow: any) => {
+//         //  this.courseData.push(processedRow);
+//         //},
+//         complete: () => {
+//           // After all rows have been processed, generate the Excel file
+//           this.generateExcel();
+//         },
+//         error: (error) => {
+//           console.error('Error processing rows:', error);
+//         }
+//       });
+// }
   
-    // Use `of` to iterate over the json array and process each row one by one
-    of(...json)
-      .pipe(
-        concatMap(row => this.lookUpService.handleRequest(this.processRow(row)).pipe(
-          map((processedRow: any) => {
-            console.log(JSON.stringify(processedRow));
-            this.courseData.push(processedRow);
+processRows(json: any[]): void {
+  this.courseData = [];  // Reset courseData
+  let totalCitations = json.length;
+  let processedCitations = 0;
+
+  from(json)
+    .pipe(
+      concatMap(row =>
+        this.lookUpService.searchPrimoApi(this.processRow(row)).pipe(
+          tap(processedRow => {
+            this.courseData.push(processedRow);  // Collect each processed row
             processedCitations++;
-            this.progressBarValue = (processedCitations / totalCitations) * 100; // Update progress
+            this.progressBarValue = (processedCitations / totalCitations) * 100;  // Update progress bar
           }),
           catchError(error => {
             console.error('Error processing row:', error);
-            return of(null); // Skip errors and continue processing other rows
+            return of(null);  // Continue processing even if one row fails
           })
-        )),
-        finalize(() => {
-          this.sendDataToLookUpService(); // Call this after all rows are processed
-        })
-      )
-      .subscribe();
-  }
-  
+        )
+      ),
+      finalize(() => {
+        // After all rows are processed, generate the Excel file
+        this.generateExcel();
+      })
+    )
+    .subscribe();
+}
 
 
   processRow(row: any): any {
@@ -200,10 +241,10 @@ export class LookupToolComponent implements OnInit {
   generateExcel(): void {
     let data = [];
     //(JSON.stringify(this.courseData));
-
-    console.log(JSON.stringify(this.courseData))
+    console.log(JSON.stringify(this.courseData));
+    //console.log(JSON.stringify(this.courseData))
     if (this.courseData != null && this.courseData != undefined && this.courseData.length > 1) {
-      console.log("true")
+      //console.log("true")
         this.courseData.forEach(result => {
             let title, author, contributor, publisher, date, mms_id, isbn, version, course_code, course_section, library, library_location, call_number, barcode, description, format;
 
@@ -280,7 +321,7 @@ export class LookupToolComponent implements OnInit {
                 'MMS ID': mms_id,
                 'ISBN': isbn,
                 'Version': version,
-                'course_code': course_code,
+                'course_cod': course_code,
                 'course_section': course_section,
                 'Returned Format': format,
                 'Library': library,
@@ -303,7 +344,7 @@ export class LookupToolComponent implements OnInit {
             }
 
             var newRow = Object.assign(newValues, row);
-            console.log(JSON.stringify(newRow));
+           // console.log(JSON.stringify(newRow));
             data.push(newRow);
         });
     } else {
@@ -385,8 +426,8 @@ export class LookupToolComponent implements OnInit {
             'MMS ID': mms_id,
             'ISBN': isbn,
             'Version': version,
-            'Course Code': course_code,
-            'Course Section': course_section,
+            'course_code': course_code,
+            'course_section': course_section,
             'Returned Format': format,
             'Library': library,
             'Location': library_location,
@@ -408,23 +449,25 @@ export class LookupToolComponent implements OnInit {
         }
 
         var newRow = Object.assign(newValues, row);
-        console.log(JSON.stringify(newRow));
+        //console.log(JSON.stringify(newRow));
         data.push(newRow);
     }
     // let finalData = [];
+
     // data.forEach(result => {
     //   JSON.stringify(result);
     //   finalData.push(result["0"])
 
     // });
-    console.log(JSON.stringify(data));
+    this.loading = false;
+   // console.log(JSON.stringify(data));
     // Generate the Excel file with the collected data
     const ws = XLSX.utils.json_to_sheet(data);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Results');
 
     // Write the file
-    XLSX.writeFile(wb, 'output.xlsx');
+    //XLSX.writeFile(wb, 'output.xlsx');
 }
 
 }
