@@ -749,13 +749,15 @@ getCitations(almaReadingListId, almaCourseId) {
     return this.restService.call(`/items?item_barcode=${barcode}`)
     
     .pipe(catchError(e=>{
+      console.log("error getting item record with barcode: " + barcode);
+
       throw(e);
     }),
     switchMap(item => {
       // if ('pid' in item['item_data']){
       let url  = item['link'].replace(/.+?(\/bibs.+)/g, "$1");
-      //console.log(url);
-      // console.log(JSON.stringify(item));
+      console.log(url);
+      console.log(JSON.stringify(item));
 
       if(reserves_library && reserves_location && reserves_library != "" && reserves_location != ""){
       item['holding_data']['in_temp_location'] = "true";
@@ -796,7 +798,6 @@ getCitations(almaReadingListId, almaCourseId) {
       // )
       // }
 
-      
      
 
     }),

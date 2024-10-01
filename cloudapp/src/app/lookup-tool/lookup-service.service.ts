@@ -25,21 +25,9 @@ export class LookUpService {
       this.institutionCode = data.instCode;  // Retrieve Institution Code
     });}
 
-handleRequest(item: any) {
-  return this.searchPrimoApi(item).pipe(
-    concatMap(result => {
-      console.log(JSON.stringify(result));
-      return of(result);
-    }),
-    
-  
-    catchError(error => {
-      console.error('Error in handleRequest:', error);
-      return throwError(error);
-    })
-  );
-}
-
+    handleRequest(item: any): Observable<any[]> {
+      return this.searchPrimoApi(item);  // No need to chain getCourseData separately, as it’s combined in searchPrimoApi
+    }
 
   // private searchPrimoApi(row: any) {
   //   // Handle the inputs and transform them as in the PHP code
@@ -109,7 +97,7 @@ handleRequest(item: any) {
   //     })
   //   );
   // }
-  public searchPrimoApi(row: any) {
+  private searchPrimoApi(row: any): Observable<any[]> {
     // Handle the inputs and transform them as in the PHP code
     let title = row['Title - Input'] || '';
     let authorFirst = row['Author First - Input'] || '';
@@ -166,62 +154,96 @@ handleRequest(item: any) {
   
     // Append other necessary constraints like suppressing suppressed records
     query += `%20AND%20alma.mms_tagSuppressed=false`;
-  
-    // Make the REST API call to SRU
-    // return this.http.get(`${this.sruUrl.alma}/view/sru/${this.institutionCode}?version=1.2&operation=searchRetrieve&recordSchema=marcxml${query}`, { responseType: 'text' }).pipe(
-    //   concatMap((xmlResponse: string) => this.parseXMLResponse(xmlResponse)),
-    //   concatMap(parsedData => this.processMARCData(parsedData, row)),
-    //   concatMap(marcResults => this.getCourseData(row).pipe(  // Combine with course data
-    //     map(courseData => {
-    //       courseData.forEach(result => {
-    //         result.forEach(course => {
-    //           //console.log(result);
-    //           course['course_code'] = courseData['course_code'];  // Add course data to each MARC record
-    //           course['course_section'] = courseData['course_section']
+  console.log(`${this.sruUrl.alma}/view/sru/${this.institutionCode}?version=1.2&operation=searchRetrieve&recordSchema=marcxml${query}`);
+ // Make the REST API call to SRU
+ return this.http.get(`${this.sruUrl.alma}/view/sru/${this.institutionCode}?version=1.2&operation=searchRetrieve&recordSchema=marcxml${query}`, { responseType: 'text' })
+ .pipe(
+   concatMap((xmlResponse: string) => this.parseXMLResponse(xmlResponse)),
+   concatMap(parsedData => this.processMARCData(parsedData, row)),
+   concatMap((marcResults: any[]) => {
+     // Validate if marcResults is a proper array
+     if (!Array.isArray(marcResults) || marcResults.length === 0) {
+       console.warn('No MARC results found.');
+       return of([]); // If no MARC results, return an empty array observable
+     }
 
-    //         })
-            
-    //       });
+     // Map each MARC result to an observable from getCourseData()
+     const courseDataObservables = marcResults.map((marcResult: any) => {
+       // Ensure getCourseData returns an observable
+       return this.getCourseData(row).pipe(
+         concatMap((courseData: any[]) => {
+           // If multiple courses, map each course to the MARC result
+           if (courseData.length > 0) {
+             return of(
+               courseData.map(course => ({
+                 ...marcResult,
+                 'Course Name': course['course_name'],
+                 'course_code': course['course_code'],
+                 'course_section': course['course_section'],
+                 'Course Instructor': course['instructors']
+               }))
+             );
+           } else {
+             // If no courses found, just return the MARC result as-is
+             return of([marcResult]);
+           }
+         }),
+         catchError(err => {
+           console.error('Error fetching course data:', err);
+           return of([marcResult]); // Return the MARC result even if there's an error fetching courses
+         })
+       );
+     });
 
-
-    //       return marcResults;  // Return combined results
-    //     })
-    //   )),
-    //   catchError(error => {
-    //     console.error('SRU API Error:', error);
-    //     console.log(query);
-    //     return throwError(error);
-    //   })
-    // );
-
-    console.log(query);
+     // Use forkJoin to combine all course data observables for all MARC results
+     return forkJoin(courseDataObservables).pipe(
+       map((results: any[]) => {
+         // Flatten the nested arrays (since courseData may return multiple courses)
+         return results.reduce((acc, val) => acc.concat(val), []);
+       }),
+       catchError(err => {
+         console.error('Error in processing forkJoin:', err);
+         return of([]); // Return an empty array in case of error
+       })
+     );
+   }),
+   catchError(error => {
+     console.error('SRU API Error:', error);
+     return throwError(error);
+   })
+ );
+  }
  // Make SRU API call
   // Make the REST API call to SRU
-  return this.http.get(`${this.sruUrl.alma}/view/sru/${this.institutionCode}?version=1.2&operation=searchRetrieve&recordSchema=marcxml${query}`, { responseType: 'text' })
-    .pipe(
-      concatMap((xmlResponse: string) => this.parseXMLResponse(xmlResponse)),
-      concatMap(parsedData => this.processMARCData(parsedData, row)),
-      concatMap(marcResults => {
-        // Collect course data for each MARC result
-        const courseDataObservables = marcResults.map((marcResult: any) =>
-          this.getCourseData(row).pipe(
-            map((courseData: any[]) => courseData.map(course => ({
-              ...marcResult,  // Combine MARC data with course data
-              'course_code': course['course_code'],
-              'course_section': course['course_section']
-            })))
-          )
-        );
-        return forkJoin(courseDataObservables).pipe(
-          map((results: any[]) => results.reduce((acc, val) => acc.concat(val), []))  // Flatten results
-        );
-      }),
-      catchError(error => {
-        console.error('SRU API Error:', error);
-        return throwError(error);
-      })
-    );
-}
+  // return this.http.get(`${this.sruUrl.alma}/view/sru/${this.institutionCode}?version=1.2&operation=searchRetrieve&recordSchema=marcxml${query}`, { responseType: 'text' })
+  //   .pipe(
+  //     concatMap((xmlResponse: string) => this.parseXMLResponse(xmlResponse)),
+  //     concatMap(parsedData => this.processMARCData(parsedData, row)),
+  //     concatMap(marcResults => {
+  //       // Collect course data for each MARC result
+  //       const courseDataObservables = marcResults.map((marcResult: any) =>
+  //         this.getCourseData(row).pipe(
+  //           concatMap((courseData: any[]) => courseData.map(course => ({
+  //             ...marcResult,  // Combine MARC data with course data
+  //             'course_code': course['course_code'],
+  //             'course_section': course['course_section']
+  //           })))
+  //         )
+  //       );
+  //       return forkJoin(courseDataObservables).pipe(
+  //         concatMap((results: any[]) =>
+  //           results.reduce((acc, val) => Array.isArray(val) ? acc.concat(...val) : acc.concat(val), [])  // Flatten only if val is an array
+  //         )
+  //       );
+
+  //       return 
+  //     }),
+  //     catchError(error => {
+  //       console.error('SRU API Error:', error);
+  //       return throwError(error);
+  //     })
+  //   );
+
 
 // private processMARCData(xmlDoc: Document, row: any) {
 // const records = xmlDoc.getElementsByTagName('record');
@@ -317,19 +339,17 @@ handleRequest(item: any) {
   // }
 
 
-  private extractMARCData(record: Element, row: any) {
+  private extractMARCData(record: Element, row: any): Observable<any[]> {
     const xpath = (tag: string, subfieldCode: string = '') => {
       const field = record.querySelector(`datafield[tag="${tag}"] subfield[code="${subfieldCode}"]`);
       return field ? field.textContent : '';
     };
   
     const format = row['Format - Input'] || '';
-    const results: any[] = [];
     const barcodeArray: string[] = [];
     const electronicRecordArray: string[] = [];
-  
-    // Create an observable array to handle both physical and electronic item results
-    const observables: any[] = [];
+    
+    const observables: Observable<any>[] = [];  // Array to collect observables for forkJoin
   
     // Handle physical items
     if (format === '' || format.toLowerCase() === 'physical') {
@@ -337,28 +357,25 @@ handleRequest(item: any) {
       if (physMmsId) {
         const itemQuery = `/bibs/${physMmsId}/holdings/ALL/items`;
   
-        // Push the physical item observable into the array
-        observables.push(
-          this.restService.call(itemQuery).pipe(
-            concatMap((items: any) => {
-              if (items.total_record_count > 0) {
-                items.item.forEach(item => {
-                  let library = item['item_data']['library']['desc'];
-                  let location = item['item_data']['location']['desc'];
-                  if (item['holding_data']['in_temp_location']) {
-                    library = item['holding_data']['temp_library']['desc'];
-                    location = item['holding_data']['temp_location']['desc'];
-                  }
+        // Push physical item API call as an observable into observables array
+        const physicalItemObservable = this.restService.call(itemQuery).pipe(
+          map((items: any) => {
+            console.log(console.log(items));
+            const physicalResults = [];
+            if (items.total_record_count > 0) {
+              items.item.forEach(item => {
+                let library = item['item_data']['library']['desc'];
+                let location = item['item_data']['location']['desc'];
+                if (item['holding_data']['in_temp_location']) {
+                  library = item['holding_data']['temp_library']['desc'];
+                  location = item['holding_data']['temp_location']['desc'];
+                }
   
-                  // Avoid duplicate barcodes
-                  if (!barcodeArray.includes(item['item_data']['barcode'])) {
-                    barcodeArray.push(item['item_data']['barcode']);
-                  } else {
-                    return;
-                  }
-  
+                // Avoid duplicate barcodes
+                if (!barcodeArray.includes(item['item_data']['barcode'])) {
+                  barcodeArray.push(item['item_data']['barcode']);
                   const author = xpath('100', 'a') || xpath('700', 'a') || xpath('710', 'a');
-                  results.push({
+                  physicalResults.push({
                     Title: xpath('245', 'a') + ' ' + xpath('245', 'b'),
                     Author: author,
                     Publisher: xpath('264', 'b'),
@@ -372,53 +389,58 @@ handleRequest(item: any) {
                     Description: item['item_data']['description'],
                     'Returned Format': 'Physical'
                   });
-                });
-              }
-              return of(results);
-            })
-          )
+                }
+              });
+            }
+            console.log(console.log(physicalResults));
+            return physicalResults;
+          }),
+          catchError(err => {
+            console.error('Error fetching physical items:', err);
+            return of([]); // Return an empty array if there is an error
+          })
         );
+  
+        // Add the physical item observable to the array
+        observables.push(physicalItemObservable);
       }
     }
   
-    // Handle electronic items synchronously
+    // Handle electronic items
     if (format === '' || format.toLowerCase() === 'electronic') {
       const eMmsId = xpath('AVE', '0');
       if (eMmsId && !electronicRecordArray.includes(`${eMmsId}Electronic`)) {
         electronicRecordArray.push(`${eMmsId}Electronic`);
-  
-        const author = xpath('100', 'a') || xpath('110', 'a') || xpath('700', 'a') || xpath('710', 'a');
-        results.push({
+        
+        // Handle electronic items inline (no need for an API call here)
+        const electronicResults = [{
           Title: xpath('245', 'a') + ' ' + xpath('245', 'b'),
-          Author: author,
+          Author: xpath('100', 'a') || xpath('110', 'a') || xpath('700', 'a') || xpath('710', 'a'),
           Publisher: xpath('264', 'b'),
           Year: xpath('264', 'c'),
           'MMS ID': eMmsId,
           ISBN: xpath('020', 'a'),
           'Returned Format': 'Electronic'
-        });
+        }];
+  
+        // Create an observable for electronic items and add it to the array
+        observables.push(of(electronicResults));
       }
     }
   
-    // Combine the results of both physical and electronic items
-    if (observables.length > 0) {
-      // If there are any asynchronous physical item observables, wait for all to complete
-      return of(results).pipe(
-        concatMap(initialResults => 
-          forkJoin(observables).pipe(
-            concatMap((finalResults: any[]) => {
-              // Check if finalResults is an array and flatten it using reduce
-              const flattenedResults = Array.isArray(finalResults) ? finalResults.reduce((acc, val) => acc.concat(val), []) : [];
-              return [...initialResults, ...flattenedResults]; // Merge initialResults and flattened finalResults
-            })
-          )
-        )
-      );
-    } else {
-      // If no physical items, return the results immediately
-      return of(results);
-    }
+    // Use forkJoin to combine the observables and return a flattened result
+    return forkJoin(observables).pipe(
+      map(resultsArray => {
+        // Flatten the results from both physical and electronic items
+        return resultsArray.reduce((acc, val) => acc.concat(val), []); // Flattening the array
+      }),
+      catchError(err => {
+        console.error('Error in extractMARCData:', err);
+        return of([]);  // Return an empty array if an error occurs
+      })
+    );
   }
+  
   
   // private extractMARCData(record: Element, row: any) {
   //   const xpath = (tag: string, subfieldCode: string = '') => {
@@ -540,63 +562,73 @@ handleRequest(item: any) {
   //     );
   // }
   
-  private processMARCData(xmlDoc: Document, row: any): Observable<any[]> {
-    const records = xmlDoc.getElementsByTagName('record');
-    const results: Observable<any>[] = [];
+  // private processMARCData(xmlDoc: Document, row: any): Observable<any[]> {
+  //   const records = xmlDoc.getElementsByTagName('record');
+  //   const results: Observable<any>[] = [];
   
-    // Handle both physical and electronic formats in extractMARCData
-    for (let i = 0; i < records.length; i++) {
-      const record = records[i];
-      results.push(this.extractMARCData(record, row));
-    }
+  //   // Handle both physical and electronic formats in extractMARCData
+  //   for (let i = 0; i < records.length; i++) {
+  //     const record = records[i];
+  //     results.push(this.extractMARCData(record, row));
+  //   }
   
-    return forkJoin(results).pipe(
-      map((flattened: any[]) => flattened.reduce((acc, val) => acc.concat(val), []))
-    );
-  }
+  
+  // }
   
 
-  // private processMARCData(xmlDoc: Document, row: any) {
-  //   const results: any[] = [];
-  //   const records = xmlDoc.getElementsByTagName('record'); // Fetch all 'record' elements
-  //   console.log(records.length);
-  //   if (records.length > 0) {
-  //     for (let i = 0; i < records.length; i++) {
-  //       const record = records[i];
-  //       this.extractMARCData(record, row).subscribe((extractedData: any) => {
-  //         console.log(JSON.stringify(extractedData));
-  //         results.push(...extractedData);
-  //         console.log(JSON.stringify(results));
-  //         // Copy additional fields from the input row into each result
-  //         results.forEach(result => {
-  //           Object.keys(row).forEach(key => {
-  //             if (!result.hasOwnProperty(key)) {
-  //               result[key] = row[key];
-  //             }
-  //           });
-  //         });
-  //       });
-  //       console.log(JSON.stringify(results));
-  //       return of(results);
-  //     }
-  //   } else {
-  //     // No records found, return placeholder result
-  //     results.push({
-  //       Title: `No results for ${row['Title - Input'] || ''}`,
-  //       Author: `No results for ${row['Author - Input'] || ''}`,
-  //       'Returned Format': 'N/A'
-  //     });
+  private processMARCData(xmlDoc: Document, row: any): Observable<any[]> {
+    const results: any[] = [];
+    const records = xmlDoc.getElementsByTagNameNS("http://www.loc.gov/MARC21/slim", 'record'); // Fetch all 'record' elements
+    const observables: Observable<any[]>[] = []; // Array to store the observables for each record
+    console.log(records.length)
+    if (records.length > 0) {
+      for (let i = 0; i < records.length; i++) {
+        const record = records[i];
+        console.log(records)
+        console.log(records[i])
+        // Call extractMARCData and collect its observable
+        observables.push(
+          this.extractMARCData(record, row).pipe(
+            map((extractedData: any[]) => {
+              // Add additional fields from the row to each extracted result
+              extractedData.forEach(result => {
+                Object.keys(row).forEach(key => {
+                  if (!result.hasOwnProperty(key)) {
+                    result[key] = row[key];
+                  }
+                });
+              });
+              return extractedData; // Return the modified data
+            })
+          )
+        );
+      }
   
-  //     // Copy additional fields from the row into the result
-  //     Object.keys(row).forEach(key => {
-  //       if (!results[0].hasOwnProperty(key)) {
-  //         results[0][key] = row[key];
-  //       }
-  //     });
-  //   }
-  //    console.log(JSON.stringify(results));
-  //   return of(results);
-  // }
+      // Use forkJoin to execute all observables concurrently and wait for all to complete
+      return forkJoin(observables).pipe(
+        map((combinedResults: any[]) => {
+          // Flatten the combined results array into a single-level array
+          return combinedResults.reduce((acc, val) => acc.concat(val), []);
+        })
+      );
+    } else {
+      // No records found, return placeholder result
+      const noResult = [{
+        Title: `No results for ${row['Title - Input'] || ''}`,
+        Author: `No results for ${row['Author - Input'] || ''}`,
+        'Returned Format': 'N/A'
+      }];
+  
+      // Add additional fields from the row to the no result object
+      Object.keys(row).forEach(key => {
+        if (!noResult[0].hasOwnProperty(key)) {
+          noResult[0][key] = row[key];
+        }
+      });
+      return of(noResult);
+    }
+  }
+  
   
 
   // private getCourseData(row: any) {
@@ -637,7 +669,13 @@ private getCourseData(row: any) {
         if ('course' in response){
         response.course.forEach(course => {
          // console.log(JSON.stringify(course));
-          courseArray.push({'course_code': course['code'], 'course_section': course['section']});
+
+        let instructors = [];
+         course['instructor'].forEach(instructor => {
+          instructors.push(instructor['last_name'])
+         });
+         let instructorString = instructors.join(';')
+          courseArray.push({'course_name': course['name'], 'course_code': course['code'], 'course_section': course['section'], 'instructors': instructorString});
          
            
         });
@@ -646,8 +684,10 @@ private getCourseData(row: any) {
 
       else{
         courseArray = [{
+          'course_name': "no results for course search",
           'course_code': "no results for course search",
-          'course_section': "no results for course search"
+          'course_section': "no results for course search",
+          'instructors': "no results for course search" 
         }];
 
       }

@@ -2,9 +2,19 @@
 
 
   <div class="cloudapp-actions" align="end">
+    
     <button mat-flat-button type="button" color="primary" (click)="handleUpload()" [disabled]="files.length==0 || loading">{{ 'Main.LoadItems' | translate }}</button>
   </div>
+ <div>
+  <a href="./assets/example input.xlsx">Download lookup tool input template</a>
+ </div>
+ <br />
   <div>
+
+    
+  
+      
+    
   <ngx-dropzone (change)="onSelect($event)" accept="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel" [multiple]=false>
     <ngx-dropzone-label translate>Main.DragFile</ngx-dropzone-label>
     <ngx-dropzone-preview *ngFor="let f of files" [removable]="true" (removed)="onRemove(f)">

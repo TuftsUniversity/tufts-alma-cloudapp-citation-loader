@@ -128,31 +128,26 @@ export class LookupToolComponent implements OnInit {
 // }
   
 processRows(json: any[]): void {
-  this.courseData = [];  // Reset courseData
+  this.courseData = [];
   let totalCitations = json.length;
   let processedCitations = 0;
-
-  from(json)
-    .pipe(
-      concatMap(row =>
-        this.lookUpService.searchPrimoApi(this.processRow(row)).pipe(
-          tap(processedRow => {
-            this.courseData.push(processedRow);  // Collect each processed row
-            processedCitations++;
-            this.progressBarValue = (processedCitations / totalCitations) * 100;  // Update progress bar
-          }),
-          catchError(error => {
-            console.error('Error processing row:', error);
-            return of(null);  // Continue processing even if one row fails
-          })
-        )
-      ),
-      finalize(() => {
-        // After all rows are processed, generate the Excel file
-        this.generateExcel();
+  this.loading = true;
+  from(json).pipe(
+    concatMap(row => this.lookUpService.handleRequest(this.processRow(row)).pipe(
+      tap(result => {
+        this.courseData.push(...result);  // Push all combined results into courseData
+        processedCitations++;
+        this.progressBarValue = (processedCitations / totalCitations) * 100;
+      }),
+      catchError(error => {
+        console.error('Error processing row:', error);
+        return of(null);
       })
-    )
-    .subscribe();
+    )),
+    finalize(() => {
+      this.generateExcel();  // Generate Excel after all rows are processed
+    })
+  ).subscribe();
 }
 
 
@@ -246,7 +241,7 @@ processRows(json: any[]): void {
     if (this.courseData != null && this.courseData != undefined && this.courseData.length > 1) {
       //console.log("true")
         this.courseData.forEach(result => {
-            let title, author, contributor, publisher, date, mms_id, isbn, version, course_code, course_section, library, library_location, call_number, barcode, description, format;
+            let title, author, contributor, publisher, date, mms_id, isbn, version, course_name, course_code, course_section, course_instructor, library, library_location, call_number, barcode, description, format;
 
             if (result['Title']) {
                 title = result['Title'];
@@ -280,6 +275,10 @@ processRows(json: any[]): void {
                 version = result['Version'];
             }
 
+            if (result['Course Name']) {
+              course_name = result['Course Name'];
+            }
+
             if (result['course_code']) {
                 course_code = result['course_code'];
             }
@@ -301,7 +300,7 @@ processRows(json: any[]): void {
             }
 
             if (result['Barcode']) {
-                barcode = JSON.stringify(result['Barcode']);
+                barcode = result['Barcode'];
             }
 
             if (result['Description']) {
@@ -321,14 +320,16 @@ processRows(json: any[]): void {
                 'MMS ID': mms_id,
                 'ISBN': isbn,
                 'Version': version,
-                'course_cod': course_code,
+                'Course Name': course_name,
+                'course_code': course_code,
                 'course_section': course_section,
+                'Course Instructor': course_instructor,
                 'Returned Format': format,
                 'Library': library,
                 'Location': library_location,
                 'Call Number': call_number,
                 'Barcode': barcode,
-                //'Description': description,
+                'Description': description,
                 'Citation Type': '',
                 'section_info': result['section_info'] || '',
                 'Item Policy': result['item_policy'] || result['Item Policy'] || ''
@@ -349,7 +350,7 @@ processRows(json: any[]): void {
         });
     } else {
         // Handling the case where there's only one result
-        let title, author, contributor, publisher, date, mms_id, isbn, version, course_code, course_section, library, library_location, call_number, barcode, description, format;
+        let title, author, contributor, publisher, date, mms_id, isbn, version, course_name, course_code, course_section, course_instructor, library, library_location, call_number, barcode, description, format;
 
         let result = this.courseData[0]; // Assuming the first and only entry
 
@@ -385,12 +386,20 @@ processRows(json: any[]): void {
             version = result['Version'];
         }
 
+        if (result['Course Name']) {
+          course_name = result['Course Name'];
+        }
+
         if (result['course_code']) {
             course_code = result['course_code'];
         }
 
         if (result['course_section']) {
             course_section = result['course_section'];
+        }
+
+        if (result['Course Instructor']) {
+          course_instructor = result['Course Instructor'];
         }
 
         if (result['Library']) {
@@ -406,7 +415,7 @@ processRows(json: any[]): void {
         }
 
         if (result['Barcode']) {
-            barcode = JSON.stringify(result['Barcode']);
+            barcode = result['Barcode'];
         }
 
         if (result['Description']) {
@@ -426,14 +435,16 @@ processRows(json: any[]): void {
             'MMS ID': mms_id,
             'ISBN': isbn,
             'Version': version,
+            'Course Name': course_name,
             'course_code': course_code,
             'course_section': course_section,
+            'Course Instructor': course_instructor,
             'Returned Format': format,
             'Library': library,
             'Location': library_location,
             'Call Number': call_number,
             'Barcode': barcode,
-            //'Description': description,
+            'Description': description,
             'Citation Type': '',
             'section_info': '',
             'Item Policy': ''
@@ -467,7 +478,7 @@ processRows(json: any[]): void {
     XLSX.utils.book_append_sheet(wb, ws, 'Results');
 
     // Write the file
-    //XLSX.writeFile(wb, 'output.xlsx');
+    XLSX.writeFile(wb, 'output.xlsx');
 }
 
 }

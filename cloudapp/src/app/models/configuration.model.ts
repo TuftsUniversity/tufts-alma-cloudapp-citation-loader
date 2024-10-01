@@ -4,10 +4,12 @@ export class Configuration {
       library: "",
       location: "",
       isChecked: false,
+      moveRequested: true,
       pub_status: "",
       visibility: ""
     };
     isChecked = false;
+    moveRequested = true;
     from: { locations?: string; } = {
       locations: "",
      

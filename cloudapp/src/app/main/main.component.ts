@@ -25,7 +25,7 @@ export class MainComponent implements OnInit, OnDestroy {
   private pageLoad$: Subscription;
   loadingConfig: boolean = false;
   isChecked: boolean;
- 
+  moveRequested: boolean;
   complete: boolean;
   config: Configuration;
   hasApiResult: boolean = false;
@@ -139,6 +139,7 @@ ngOnInit() {
     this.library = this.config.mustConfig.library;
     this.location = this.config.from.locations;
     this.isChecked = this.config.isChecked;
+    this.moveRequested = this.config.moveRequested;
     //console.log(this.config);
     this.loading = true;
     this.courseProcessed = 0;
@@ -615,7 +616,7 @@ ngOnInit() {
             let item_move_valid: boolean = true;
             let moveable: boolean;
 
-            if(reserves_library && reserves_location){
+            if(reserves_library && reserves_location && this.moveRequested){
               moveable = true;
             }
 
@@ -628,7 +629,7 @@ ngOnInit() {
           // console.log(reading_list_valid);
           // console.log(exists);
 
-            if (valid == true && reading_list_valid == true && exists == false && barcode && ((reserves_library && reserves_location || item_policy))){
+            if (valid == true && reading_list_valid == true && exists == false && barcode && moveable && ((reserves_library && reserves_location || item_policy))){
        
 
               return this.itemService.updateItem(barcode, reserves_library, reserves_location, item_policy).pipe(
@@ -697,7 +698,7 @@ ngOnInit() {
               let skippedSummary = '';
             // console.log(JSON.stringify(results))
               results.forEach(res => {
-               // console.log(`${JSON.stringify(res[0][15])}`)
+               console.log(`${JSON.stringify(res[0][15])}`)
                
                 let reading_list_section: string = "Resources";
                     if(res[0][12]){
@@ -814,18 +815,39 @@ ngOnInit() {
                     
 
 
-
+                      if (res[0][14] == true){
                       
-                      updatedItems.push("course code: " + JSON.stringify(res[0][5])  + ", reading list: " + reading_list_name + section + ", MMS ID: " + res[0][4] + `citation: ${JSON.stringify(res[0][3].id)} - Item with barcode ${res[0][7]} sytemically moved to temp location but still needs to be physically moved \n`);
+                      updatedItems.push("course code: " + JSON.stringify(res[0][5])  + ", reading list: " + reading_list_name + section + ", MMS ID: " + res[0][4] + `citation: ${JSON.stringify(res[0][3].id)} - Item with barcode ${res[0][7]} sytemically moved to temp location but still needs to be physically moved and is not marked as complete \n`);
                     successCount++;
                     this.nonCompletedReadingLists.push(res[0][5]);
+
+                      }
+
+                      else{
+                        updatedItems.push("course code: " + JSON.stringify(res[0][5])  + ", reading list: " + reading_list_name + section + ", MMS ID: " + res[0][4] + `citation: ${JSON.stringify(res[0][3].id)} - Item with barcode ${res[0][7]} on reading list and remains in its current location but is not marked as complete \n`);
+                        successCount++;
+                        this.nonCompletedReadingLists.push(res[0][5]);
+
+                      }
                     }
 
                     else{
+
+                      if(res[0][14] == true){
                     
                     updatedItems.push("course code: " + JSON.stringify(res[0][5])  + ", reading list: " + reading_list_name + ", section: " + JSON.stringify(reading_list_section) + ", MMS ID: " + res[0][4] + `citation: ${JSON.stringify(res[0][3].id)} - Item with barcode ${res[0][7]} moved to new location \n`);
                     successCount++;
+
+                      }
+
+                      else{
+                        updatedItems.push("course code: " + JSON.stringify(res[0][5])  + ", reading list: " + reading_list_name + ", section: " + JSON.stringify(reading_list_section) + ", MMS ID: " + res[0][4] + `citation: ${JSON.stringify(res[0][3].id)} - Item with barcode ${res[0][7]} on reading list and remains in its current location \n`);
+                        successCount++;
+
+                      }
                     }
+
+                  
 
 
                   }

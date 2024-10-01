@@ -24,6 +24,7 @@ export class SettingsComponent implements OnInit {
   config: Configuration = new Configuration();
   libraries: Library[] = [];
   isChecked: boolean;
+  moveRequested: boolean;
   locations: Location[] = [];
   citation_complete: boolean = false;
   pub_status: string = "";
@@ -56,6 +57,7 @@ export class SettingsComponent implements OnInit {
         if (value.config && Object.keys(value.config).length !== 0) {
           this.config = value.config;
           this.isChecked = this.config.isChecked; 
+          this.moveRequested = this.config.moveRequested; 
           this.pub_status = this.config.mustConfig.pub_status;
           this.visibility = this.config.mustConfig.visibility;
           //console.log(JSON.stringify(this.config));
@@ -163,6 +165,13 @@ export class SettingsComponent implements OnInit {
 
   onChangeCheckbox() {
     this.isChecked = !this.isChecked; // Toggle the checkbox state
+
+    //console.log(this.isChecked)
+    // No need to call set here if it will be handled by the form submit
+  }
+
+  onChangeMoveCheckbox() {
+    this.moveRequested = !this.moveRequested; // Toggle the checkbox state
 
     //console.log(this.isChecked)
     // No need to call set here if it will be handled by the form submit
