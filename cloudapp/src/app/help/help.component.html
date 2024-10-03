@@ -1,23 +1,99 @@
 <div class="eca-actions">
-    <button mat-flat-button color="primary" [routerLink]="['/']"><mat-icon>arrow_back</mat-icon>Back</button>
-  </div>
-  
-  <div class="title">
-    <h1 >{{ 'Help.Title' | translate }}</h1>
-  </div>
+  <button mat-flat-button color="primary" [routerLink]="['/']">
+      <mat-icon>arrow_back</mat-icon>Back
+  </button>
+</div>
+
+<div class="title">
+  <h1>Help Page</h1>
+</div>
+
+<!-- Lookup Tool Section -->
+<div>
+  <h2>Cloud App</h2>
+   This goal of this app is to take lists of material that may come from faculty email or bibliograpic metadata spreadsheets, show you what of these materials you have in your collection, and then let you use the same list, filtered as needed including for things that weren't found and use this same output sheet as input to the second part of the app, the Citation Loader, to load these as citations on reading lists--automatically in batch.   The goal is to save all the time that would be assoicated with creating citations and reading lists one by one.  
+  <h2>Lookup Tool</h2>
+  The Lookup Tool is designed to search your Alma repository based on bibliographic metadata: title, author/contributor, and year. It's particularly useful for resolving issues with citations that may be missing an ISBN or contain an incorrect one.
+
+  <strong>Overview:</strong>
   <div>
-    <p><strong>{{ 'Help.LookupKey' | translate }}</strong></p>
-    <p>
-    - {{ 'Help.LookupKeyDescription' | translate }}</p>
-    <p> {{ 'Help.MMSID' | translate }} </p>
-  
-    <p></p>
-    <p> {{ 'Help.MMSIDDetails' | translate }} </p>
-    <p> {{ 'Help.OtherFields' | translate }} </p>
+      <p>The lookup tool is basically a search engine of citation data against your Alma repository, but with results targeted specifically from citation metadata to your collection.
+       It’s a title, author, and pub date search designed to overcome issues with faculty citations missing an ISBN or containing the wrong one.
+       With output that lists course codes and sections to add to or create reading lists.</p>
+       <br/>
+       <p>A list of MMS and item results, from which you can cull/choose the items and titles you want to load into the reading list.
+       There may be cases where multiple copies, years, or different versions of a title are found, and you will need to decide which one to load.</p>
+      
+       <br/>       <p>You can hide unwanted titles from the input sheet, which will then be loaded into the citation loader.
+       Titles not found in your collection should be submitted for acquisition. You can hide or suppress these rows before loading the citation loader.
+       The citation loader will ignore hidden rows.</p>
+       
+       <br/>
+        <p><strong>Note that although this is outside the scope of this app, one possibility for creating the input spreadsheet the Lookup Tool uses is using an AI Tool, such as Chat GPT, with a prompt such  as this:</strong></p>
+        <table>
 
-    
-    
-    
+          <tr>
 
-    <p><a translate href="https://github.com/TuftsUniversity/tufts-alma-cloudapp-citation-loader/issues" target="_blank">Open an issue</a></p>
+            <td>
+        "turn these citations into a table in an Excel spreadsheet of bibliographic metadata with Title, Author First, Author Last, Contributor First, Contributor Last, Publisher, and Year, as such metadata is available for each citation.
+
+        Add to this table 3 columns "Course Number", "Instructor Last Name", and "Course Semester" and assign all rows these values respectively " CSHD-0066 ", "Smith", "Sp24"
+        Harter, S. (2015). The Construction of the Self: Developmental and Sociocultural Foundations. Guilford Press.
+
+        Schwartz, S., Luychx, K., & Vignoles, V. L. (2011). Handbook of Identity Theory and Research. Springer.
+
+
+
+        McLean, K. & Syed, M. (2015). The Oxford Handbook of Identity Development.
+
+        
+        Santos, C. & Umaña-Taylor, A.J. (2015). (Eds.) Studying Ethnic Identity: Methodological and Conceptual Approaches Across Disciplines. American Psychological Association.
+
+
+        Erikson, E. H. (1968). Identity, youth, and crises. New York: Norton.
+      </td>
+    </tr>
+  </table>
+      
+       
+  </div>
+
+  <h3>Input Data Fields:</h3>
+  <ul>
+      <li>Title - Input</li>
+      <li>Author First - Input</li>
+      <li>Author Last - Input</li>
+      <li>Contributor First - Input</li>
+      <li>Contributor Last - Input</li>
+      <li>Publisher - Input</li> (this is not used in search, but it carries over as input data in results)
+      <li>Year - Input</li>
+      <li>Course Number - Input</li> (This assumes you have part of the course name that corresponds to a course catalog course identifier, that represents a course not specific to semester)
+      <li>Course Semester - Input</li>
+      <li>Instructor Last Name - Input</li>
+      <li>Format - Input</li>
+  </ul>
+
+  <strong>Processing:</strong>
+  <p>The Lookup Tool will query your Alma SRU endpoint and return results based on the citation metadata provided in the input fields. The results will include matching MMS and item data. Additionally, any course-related data such as course codes and sections will be included if available.
+
+  <strong> Note you need to enable your SRU endpoint as an integration profile in Alma configurations, and including holding information.</strong></p>
+</div>
+
+<!-- Citation Loader Section -->
+<div>
+  <h2>Citation Loader</h2>
+  The Citation Loader allows you to take the cleaned-up list of citations from the Lookup Tool and load them directly into reading lists in Alma. It ensures that only the chosen citations are included in the final reading list.
+
+  <strong>Features:</strong>
+  <div>
+       Load citations into reading lists for specific courses and sections.
+       MMS IDs and item-level information are processed automatically.
+       Customizable workflows allow for easy hiding of unwanted titles before loading.
+       Ignore hidden rows in the spreadsheet, ensuring only desired records are loaded.
+  </div>
+
+  <strong>Output:</strong>
+  The Citation Loader processes the selected records and loads them into Alma, creating reading lists for the specified courses and sections. You can choose which items to load from the list provided by the Lookup Tool.
+
+  <a href="https://github.com/TuftsUniversity/tufts-alma-cloudapp-citation-loader/issues" target="_blank">Open an issue</a>
 </div>

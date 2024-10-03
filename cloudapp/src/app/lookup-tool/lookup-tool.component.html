@@ -23,17 +23,9 @@
   </ngx-dropzone>
   </div>
   <div>
-    <a [routerLink]="['']">To Citation Loader</a>
+    <a [routerLink]="['main']">To Citation Loader</a>
   </div>
-  <div *ngIf="resultMessage">
-    
-   
-    
-    <h3 >{{ 'Main.Results' | translate }}</h3>
-    <p style="white-space: pre-line">{{resultMessage}}</p> 
-    <button mat-flat-button type="button" color="primary" (click)="print(resultMessage)">Download log</button>
-    
-  </div>
+ 
   
   <div class="loading-shade" *ngIf="loading">
     <mat-spinner diameter="50"></mat-spinner>
