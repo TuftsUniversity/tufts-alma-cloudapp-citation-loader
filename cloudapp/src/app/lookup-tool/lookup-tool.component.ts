@@ -42,7 +42,7 @@ export class LookupToolComponent implements OnInit {
     this.files.splice(this.files.indexOf(event), 1);
   } 
 
-  handleUpload(event: any): void {
+  handleUpload(): void {
     
 
     let fileReader = new FileReader();
