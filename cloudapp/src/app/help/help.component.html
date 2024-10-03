@@ -84,13 +84,73 @@
   <h2>Citation Loader</h2>
   The Citation Loader allows you to take the cleaned-up list of citations from the Lookup Tool and load them directly into reading lists in Alma. It ensures that only the chosen citations are included in the final reading list.
 
-  <strong>Features:</strong>
-  <div>
-       Load citations into reading lists for specific courses and sections.
-       MMS IDs and item-level information are processed automatically.
-       Customizable workflows allow for easy hiding of unwanted titles before loading.
-       Ignore hidden rows in the spreadsheet, ensuring only desired records are loaded.
-  </div>
+
+
+  <h2>Input data</h2>
+  <ul>
+      <li>This citation loader is designed to ingest the output of the lookup tool, or any excel workbook with equivalent fields.</li>
+      <li>It needs MMS and Course Code/section, but it can include a lot of other fields like reading list section, temporary item policy, and citation type. If no reading list section is provided, it will enter citations under the "Resources" section. Course section is necessary if your course codes by themselves are not unique</li>
+      <li>Here is the list of fields the citation loader can ingest:</li>
+      <ul>
+          <li><strong>course_code</strong> or Course Code (required)</li>
+          <li><strong>course_section</strong> or Course Section (required if course code is not unique)</li>
+          <li><strong>mms_id</strong> or MMS ID (required)</li>
+          <li><strong>citation_type</strong> or Citation Type or secondary_type (this is the secondary type of the citation. The primary type for non-articles is always "Book" per Leganto)</li>
+          <li><strong>barcode</strong> (if the citation is physical and if you want it moved to the temporary reserves location defined in settings)</li>
+          <li><strong>course code</strong> (At Tufts University, where this was created, course codes uniquely identify both a course and a section. If your institution shares course codes for different sections, you may want to redevelop this to receive section ID)</li>
+          <li><strong>section_info</strong> (this is the reading list section, if desired)</li>
+          <li><strong>item_policy</strong> or Item Policy (Note this has to be the item policy <strong>code</strong>.  This is the temporary item policy you want physical citations to move to as part of the temporary move. Leave blank if none are desired)</li>
+      </ul>
+  </ul>
+
+  <h2>Settings</h2>
+  <ul>
+      <li>The settings page lets you configure the temporary library and location to move the physical material to, and if you want these physical citations to complete once they are successfully moved. You may not want them to complete if you haven't physically retrieved the items yet, in which case you can keep track of them in your tasks list</li>
+  </ul>
+
+  <h2>Defaults</h2>
+  <p>Defaults are assumed for the creation of reading lists and citations except for the fields you can specify in the spreadsheet.</p>
+
+  <h3>Course and reading list validation</h3>
+  <ul>
+      <li>Before creating a citation, this app does a course and reading list search and validates that:</li>
+      <ul>
+          <li>The course exists</li>
+          <li>The reading list exists AND</li>
+          <li>There is exactly one reading list for that course</li>
+          <li>If there are none, it creates one with defaults</li>
+          <li>If there is more than one, it errors with the message that reading list assignment is ambiguous because there is more than one reading list</li>
+      </ul>
+  </ul>
+
+  <h3>Citation validation</h3>
+  <ul>
+      <li>Because this process is only for repository citations, the application checks that the MMS is for a valid bib record. If not, it records an error</li>
+      <li>It determines if a citation with that MMS ID is already on the reading list. This is because reserves staff might have received a request to create a citation for this reading list via email etc., but they may have added it themselves in the meantime. In this case, it will not go into update or success, or miss, but rather the intermediate status of "Skipped"</li>
+  </ul>
+
+  <h2>Use</h2>
+  <ul>
+      <li>Take the output file from the Lookup Tool part of this app, with any items that were not found filtered out.  (Hidden rows will be ignored)<br/>
+      It's probably best to limit this to 50-75 items because of the processing it's doing in browser</li>
+      
+      <li>Set settings</li>
+      <li>Pick file</li>
+      <li>Load</li>
+      <li>Wait for it to process.  This can take some time because of all the processing it is doing</li>
+      <li>At the end, the processing log shows:</li>
+      <ul>
+          <li>Number of processed entries</li>
+          <li>Number of successfully updated entries</li>
+          <li>Number of skipped entries (exists on reading list already)</li>
+          <li>Number of error entries</li>
+          <li>If all citations on each reading list were completed successfully, and all citations that were there before also have a status complete, then it will show the counts of the reading lists that were completed. If you have physical citations not complete and there are physical citations on the reading list, then that particular reading list won't complete</li>
+      </ul>
+      <li>You can also download this log</li>
+  </ul>
+
+  <p><a href="https://developers.exlibrisgroup.com/appcenter/citation-loader/">https://developers.exlibrisgroup.com/appcenter/citation-loader/</a></p>
+
 
   <strong>Output:</strong>
   The Citation Loader processes the selected records and loads them into Alma, creating reading lists for the specified courses and sections. You can choose which items to load from the list provided by the Lookup Tool.
