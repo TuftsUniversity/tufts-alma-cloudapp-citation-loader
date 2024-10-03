@@ -813,8 +813,6 @@ ngOnInit() {
                       }
 
                     
-
-
                       if (res[0][14] == true){
                       
                       updatedItems.push("course code: " + JSON.stringify(res[0][5])  + ", reading list: " + reading_list_name + section + ", MMS ID: " + res[0][4] + `citation: ${JSON.stringify(res[0][3].id)} - Item with barcode ${res[0][7]} sytemically moved to temp location but still needs to be physically moved and is not marked as complete \n`);
