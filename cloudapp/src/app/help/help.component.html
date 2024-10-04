@@ -11,21 +11,20 @@
 <!-- Lookup Tool Section -->
 <div>
   <h2>Cloud App</h2>
-   This goal of this app is to take lists of material that may come from faculty email or bibliograpic metadata spreadsheets, show you what of these materials you have in your collection, and then let you use the same list, filtered as needed including for things that weren't found and use this same output sheet as input to the second part of the app, the Citation Loader, to load these as citations on reading lists--automatically in batch.   The goal is to save all the time that would be assoicated with creating citations and reading lists one by one.  
+   This goal of this app is to take lists of material that may come from faculty email or bibliograpic metadata spreadsheets, show you what of these materials you have in your collection, and then let you use the same list, filtered as needed including for things that weren't found and use this as input to the second part of the app, the Citation Loader, to load these as citations on reading lists--automatically in batch.   The goal is to save all the time that would be assoicated with creating citations and reading lists one by one.  
   <h2>Lookup Tool</h2>
   The Lookup Tool is designed to search your Alma repository based on bibliographic metadata: title, author/contributor, and year. It's particularly useful for resolving issues with citations that may be missing an ISBN or contain an incorrect one.
 
   <strong>Overview:</strong>
   <div>
-      <p>The lookup tool is basically a search engine of citation data against your Alma repository, but with results targeted specifically from citation metadata to your collection.
+      <p>The lookup tool is basically a search engine of citation data against your Alma repository, with the purpose of retrieving the MMS ID and course code for use by the citation loader.
        It’s a title, author, and pub date search designed to overcome issues with faculty citations missing an ISBN or containing the wrong one.
-       With output that lists course codes and sections to add to or create reading lists.</p>
+       Output lists course codes and sections to add to or create reading lists.</p>
        <br/>
-       <p>A list of MMS and item results, from which you can cull/choose the items and titles you want to load into the reading list.
-       There may be cases where multiple copies, years, or different versions of a title are found, and you will need to decide which one to load.</p>
       
-       <br/>       <p>You can hide unwanted titles from the input sheet, which will then be loaded into the citation loader.
-       Titles not found in your collection should be submitted for acquisition. You can hide or suppress these rows before loading the citation loader.
+      
+          <p>You can hide unwanted titles from the input sheet, which will cause them not to be loaded into the citation loader.
+        For titlee not found in your collection, you may want to submit them for acquisition purchading. 
        The citation loader will ignore hidden rows.</p>
        
        <br/>
@@ -74,7 +73,7 @@
   </ul>
 
   <strong>Processing:</strong>
-  <p>The Lookup Tool will query your Alma SRU endpoint and return results based on the citation metadata provided in the input fields. The results will include matching MMS and item data. Additionally, any course-related data such as course codes and sections will be included if available.
+  <p>The Lookup Tool will query your Alma SRU endpoint and return results based on the citation metadata provided in the input fields. The results will include matching MMS and item data.  Additionally, any course-related data such as course codes and sections will be included if available.
 
   <strong> Note you need to enable your SRU endpoint as an integration profile in Alma configurations, and including holding information.</strong></p>
 </div>
@@ -88,7 +87,7 @@
 
   <h2>Input data</h2>
   <ul>
-      <li>This citation loader is designed to ingest the output of the lookup tool, or any excel workbook with equivalent fields.</li>
+    
       <li>It needs MMS and Course Code/section, but it can include a lot of other fields like reading list section, temporary item policy, and citation type. If no reading list section is provided, it will enter citations under the "Resources" section. Course section is necessary if your course codes by themselves are not unique</li>
       <li>Here is the list of fields the citation loader can ingest:</li>
       <ul>
@@ -97,7 +96,7 @@
           <li><strong>mms_id</strong> or MMS ID (required)</li>
           <li><strong>citation_type</strong> or Citation Type or secondary_type (this is the secondary type of the citation. The primary type for non-articles is always "Book" per Leganto)</li>
           <li><strong>barcode</strong> (if the citation is physical and if you want it moved to the temporary reserves location defined in settings)</li>
-          <li><strong>course code</strong> (At Tufts University, where this was created, course codes uniquely identify both a course and a section. If your institution shares course codes for different sections, you may want to redevelop this to receive section ID)</li>
+          <li><strong>course code</strong> (At Tufts University, where this was created, course codes uniquely identify both a course and a section. If your institution shares course codes for different sections, you can include the section ID to uniquely identify the Alma course record.  
           <li><strong>section_info</strong> (this is the reading list section, if desired)</li>
           <li><strong>item_policy</strong> or Item Policy (Note this has to be the item policy <strong>code</strong>.  This is the temporary item policy you want physical citations to move to as part of the temporary move. Leave blank if none are desired)</li>
       </ul>
