@@ -157,9 +157,9 @@ export class LookUpService {
     var url = `${this.sruUrl.alma}/view/sru/${this.institutionCode}?version=1.2&operation=searchRetrieve&recordSchema=marcxml${query}`;
 
     url = url.replace(/\/\/view\/sru/g, "\/view\/sru");
-    console.log(`${this.sruUrl.alma}/view/sru/${this.institutionCode}?version=1.2&operation=searchRetrieve&recordSchema=marcxml${query}`);
+    console.log(url);
  // Make the REST API call to SRU
- return this.http.get(`${this.sruUrl.alma}/view/sru/${this.institutionCode}?version=1.2&operation=searchRetrieve&recordSchema=marcxml${query}`, { responseType: 'text' })
+ return this.http.get(url, { responseType: 'text' })
  .pipe(
    concatMap((xmlResponse: string) => this.parseXMLResponse(xmlResponse)),
    concatMap(parsedData => this.processMARCData(parsedData, row)),
