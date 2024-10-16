@@ -154,7 +154,10 @@ export class LookUpService {
   
     // Append other necessary constraints like suppressing suppressed records
     query += `%20AND%20alma.mms_tagSuppressed=false`;
-  console.log(`${this.sruUrl.alma}/view/sru/${this.institutionCode}?version=1.2&operation=searchRetrieve&recordSchema=marcxml${query}`);
+    var url = `${this.sruUrl.alma}/view/sru/${this.institutionCode}?version=1.2&operation=searchRetrieve&recordSchema=marcxml${query}`;
+
+    url = url.replace(/\/\/view\/sru/g, "\/view\/sru");
+    console.log(`${this.sruUrl.alma}/view/sru/${this.institutionCode}?version=1.2&operation=searchRetrieve&recordSchema=marcxml${query}`);
  // Make the REST API call to SRU
  return this.http.get(`${this.sruUrl.alma}/view/sru/${this.institutionCode}?version=1.2&operation=searchRetrieve&recordSchema=marcxml${query}`, { responseType: 'text' })
  .pipe(
