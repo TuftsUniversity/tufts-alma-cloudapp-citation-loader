@@ -1,5 +1,7 @@
 {
 	"Main": {
+		"LookupTool": "Lookup Tool",
+		"CitationLoader": "Citation Loader",
 		"LoadItems": "Load Items",
 		"DragFile": "Drag a file or click to browse",
 		"Processed": "Total number of records is",

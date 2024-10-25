@@ -7,6 +7,8 @@
 <div class="cloudapp-actions" align="end">
   <button mat-flat-button type="button" color="primary" (click)="loadExecl()" [disabled]="files.length==0 || loading">{{ 'Main.LoadItems' | translate }}</button>
 </div>
+<!--similar styling to other cloud apps-->
+<h1 >{{ 'Main.CitationLoader' | translate }}</h1>
 <div>
 <ngx-dropzone (change)="onSelect($event)" accept="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel" [multiple]=false>
   <ngx-dropzone-label translate>Main.DragFile</ngx-dropzone-label>
