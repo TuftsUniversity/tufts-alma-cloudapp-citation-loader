@@ -121,7 +121,19 @@ export class LookUpService {
     
   
     let query = ``; // Build the SRU query
+
+
   
+    // Remove punctuation marks: , : ; . " ' “ ” ‘ ’
+    title = title.replace(/[,:;."'\“\”\‘\’]/g, ' ');
+
+    // Replace hyphens with spaces (uncomment if needed)
+    // title = title.replace(/[-]/g, ' ');
+
+    // Replace ampersands with spaces
+    title = title.replace(/[&]/g, ' ');
+
+   
     // Build the query part for title
     if (title) {
       query += `&query=alma.title==%22*${encodeURIComponent(title)}*%22`;
@@ -149,11 +161,9 @@ export class LookUpService {
   
     // Add year to query if present
     if (year) {
-      query += `%20AND%20alma.main_pub_date=${year}`;
+      query += `%20AND%20%28alma.main_public_date=%22${year}%22%20OR%20alma.date_of_publication=%22${year}%22%29`;
     }
   
-    // Append other necessary constraints like suppressing suppressed records
-    query += `%20AND%20alma.mms_tagSuppressed=false`;
     var url = `${this.sruUrl.alma}/view/sru/${this.institutionCode}?version=1.2&operation=searchRetrieve&recordSchema=marcxml${query}`;
 
     url = url.replace(/\/\/view\/sru/g, "\/view\/sru");
@@ -270,7 +280,7 @@ export class LookUpService {
       'Title': `No results for ${row['Title - Input'] || ''}`,
       'Author Last': `No results for ${row['Author Last - Input'] || ''}`,
       'Publisher': `No results for ${row['Publisher - Input'] || ''}`,
-      'Year': `No results for ${row['Year - Input'] || ''}`,
+      'Date': `No results for ${row['Year - Input'] || ''}`,
       'course_code': row['Course Number - Input'] || '',
       'Returned Format': 'N/A'
     }];
@@ -382,7 +392,7 @@ export class LookUpService {
                     Title: xpath('245', 'a') + ' ' + xpath('245', 'b'),
                     Author: author,
                     Publisher: xpath('264', 'b'),
-                    Year: xpath('264', 'c'),
+                    Date: xpath('264', 'c'),
                     'MMS ID': physMmsId,
                     ISBN: xpath('020', 'a'),
                     Library: library,
@@ -420,7 +430,7 @@ export class LookUpService {
           Title: xpath('245', 'a') + ' ' + xpath('245', 'b'),
           Author: xpath('100', 'a') || xpath('110', 'a') || xpath('700', 'a') || xpath('710', 'a'),
           Publisher: xpath('264', 'b'),
-          Year: xpath('264', 'c'),
+          Date: xpath('264', 'c'),
           'MMS ID': eMmsId,
           ISBN: xpath('020', 'a'),
           'Returned Format': 'Electronic'

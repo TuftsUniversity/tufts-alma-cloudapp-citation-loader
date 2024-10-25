@@ -19,6 +19,9 @@
          "popups": true,
          "downloads": true,
          "modals": true
-      }
+      },
+      "connectSrc": [
+         "*"
+      ]
    }
 }
