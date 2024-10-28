@@ -136,7 +136,7 @@ export class LookUpService {
    
     // Build the query part for title
     if (title) {
-      query += `&query=alma.title==%22*${encodeURIComponent(title)}*%22`;
+      query += `&query=alma.title==%22*${title}*%22`;
     } else {
       return this.noResultsResponse(row, 'Title');  // Handle the case when no title is provided
     }
