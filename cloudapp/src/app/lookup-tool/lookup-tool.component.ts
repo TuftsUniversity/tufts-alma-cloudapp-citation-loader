@@ -85,6 +85,22 @@ export class LookupToolComponent implements OnInit {
     const worksheet = workbook.Sheets[sheetName];
     const json: any[] = XLSX.utils.sheet_to_json(worksheet);
 
+    let existingKeys = [];
+
+    // Collect all existing keys
+    json.forEach(row => {
+
+        for (let key in row) {
+            const trimmedKey = key.trim();  // Trim the key
+            existingKeys.push(trimmedKey);
+
+        // Replace original key with trimmed version if necessary
+        if (trimmedKey !== key) {
+            row[trimmedKey] = row[key];
+            delete row[key];
+        }
+    }
+    });
     this.processRows(json);
   }
 

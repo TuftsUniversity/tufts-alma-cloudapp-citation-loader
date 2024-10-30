@@ -4,6 +4,7 @@ import { HttpClient } from '@angular/common/http';
 
 import { of, throwError, forkJoin, Observable } from 'rxjs';
 import { map, concatMap, catchError } from 'rxjs/operators';
+import { HttpParams } from '@angular/common/http';
 
 @Injectable({
   providedIn: 'root',
@@ -136,40 +137,49 @@ export class LookUpService {
    
     // Build the query part for title
     if (title) {
-      query += `&query=alma.title==%22*${title}*%22`;
+      query += `alma.title=="*${encodeURIComponent(title)}*"`;
     } else {
       return this.noResultsResponse(row, 'Title');  // Handle the case when no title is provided
     }
   
+    
     // Build the query part for author
     if (authorLast) {
       if (authorFirst) {
-        query += `%20AND%20alma.creator=%22*${encodeURIComponent(authorLast)},${encodeURIComponent(authorFirst)}*%22`;
+        query += ` AND alma.creator="*${encodeURIComponent(authorLast)},${encodeURIComponent(authorFirst)}*"`;
       } else {
-        query += `%20AND%20alma.creator=%22*${encodeURIComponent(authorLast)}*%22`;
+        query += ` AND alma.creator=%22*${encodeURIComponent(authorLast)}*"`;
       }
     }
   
     // Build the query part for contributor
     if (contributorLast) {
       if (contributorFirst) {
-        query += `%20AND%20alma.creator=%22*${encodeURIComponent(contributorLast)},${encodeURIComponent(contributorFirst)}*%22`;
+        query += ` AND alma.creator="*${encodeURIComponent(contributorLast)},${encodeURIComponent(contributorFirst)}*"`;
       } else {
-        query += `%20AND%20alma.creator=%22*${encodeURIComponent(contributorLast)}*%22`;
+        query += ` AND alma.creator="*${encodeURIComponent(contributorLast)}*"`;
       }
     }
   
     // Add year to query if present
     if (year) {
-      query += `%20AND%20%28alma.main_public_date=%22${year}%22%20OR%20alma.date_of_publication=%22${year}%22%29`;
+      query += ` AND (alma.main_public_date=${year} OR alma.date_of_publication=${year})`;
     }
   
-    var url = `${this.sruUrl.alma}/view/sru/${this.institutionCode}?version=1.2&operation=searchRetrieve&recordSchema=marcxml${query}`;
+    var url = `${this.sruUrl.alma}/view/sru/${this.institutionCode}`//?version=1.2&operation=searchRetrieve&recordSchema=marcxml${query}`;
 
     url = url.replace(/\/\/view\/sru/g, "\/view\/sru");
     console.log(url);
  // Make the REST API call to SRU
- return this.http.get(url, { responseType: 'text' })
+ 
+ const queryParams = new HttpParams()
+  .set('version', '1.2')
+  .set('operation', 'searchRetrieve')
+  .set('recordSchema', 'marcxml')
+  .set('query', query);
+
+console.log(`${url}?${queryParams.toString()}`)
+ return this.http.get(`${url}?${queryParams.toString()}`, { responseType: 'text' })
  .pipe(
    concatMap((xmlResponse: string) => this.parseXMLResponse(xmlResponse)),
    concatMap(parsedData => this.processMARCData(parsedData, row)),
