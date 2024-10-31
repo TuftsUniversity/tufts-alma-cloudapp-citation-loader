@@ -137,7 +137,7 @@ export class LookUpService {
    
     // Build the query part for title
     if (title) {
-      query += `alma.title=="*${encodeURIComponent(title)}*"`;
+      query += `alma.title==%22*${encodeURIComponent(title)}*%22`;
     } else {
       return this.noResultsResponse(row, 'Title');  // Handle the case when no title is provided
     }
@@ -146,18 +146,18 @@ export class LookUpService {
     // Build the query part for author
     if (authorLast) {
       if (authorFirst) {
-        query += ` AND alma.creator="*${encodeURIComponent(authorLast)},${encodeURIComponent(authorFirst)}*"`;
+        query += ` AND alma.creator=%22*${encodeURIComponent(authorLast)},${encodeURIComponent(authorFirst)}*%22`;
       } else {
-        query += ` AND alma.creator=%22*${encodeURIComponent(authorLast)}*"`;
+        query += ` AND alma.creator=%22*${encodeURIComponent(authorLast)}*%22`;
       }
     }
   
     // Build the query part for contributor
     if (contributorLast) {
       if (contributorFirst) {
-        query += ` AND alma.creator="*${encodeURIComponent(contributorLast)},${encodeURIComponent(contributorFirst)}*"`;
+        query += ` AND alma.creator=%22*${encodeURIComponent(contributorLast)},${encodeURIComponent(contributorFirst)}*%22`;
       } else {
-        query += ` AND alma.creator="*${encodeURIComponent(contributorLast)}*"`;
+        query += ` AND alma.creator=%22*${encodeURIComponent(contributorLast)}*%22`;
       }
     }
   
