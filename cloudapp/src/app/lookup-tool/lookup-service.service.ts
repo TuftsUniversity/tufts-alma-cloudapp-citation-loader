@@ -55,7 +55,7 @@ export class LookUpService {
 
   //   // Build the query part for title
   //   if (title) {
-  //     query += `&query=alma.title==%22*${encodeURIComponent(title)}*%22`;
+  //     query += `&query=alma.title==*${encodeURIComponent(title)}*`;
   //   } else {
   //     return this.noResultsResponse(row, 'Title');  // Handle the case when no title is provided
   //   }
@@ -63,18 +63,18 @@ export class LookUpService {
   //   // Build the query part for author
   //   if (authorLast) {
   //     if (authorFirst) {
-  //       query += `%20AND%20alma.creator=%22*${encodeURIComponent(authorLast)},${encodeURIComponent(authorFirst)}*%22`;
+  //       query += `%20AND%20alma.creator=*${encodeURIComponent(authorLast)},${encodeURIComponent(authorFirst)}*`;
   //     } else {
-  //       query += `%20AND%20alma.creator=%22*${encodeURIComponent(authorLast)}*%22`;
+  //       query += `%20AND%20alma.creator=*${encodeURIComponent(authorLast)}*`;
   //     }
   //   }
 
   //   // Build the query part for contributor
   //   if (contributorLast) {
   //     if (contributorFirst) {
-  //       query += `%20AND%20alma.creator=%22*${encodeURIComponent(contributorLast)},${encodeURIComponent(contributorFirst)}*%22`;
+  //       query += `%20AND%20alma.creator=*${encodeURIComponent(contributorLast)},${encodeURIComponent(contributorFirst)}*`;
   //     } else {
-  //       query += `%20AND%20alma.creator=%22*${encodeURIComponent(contributorLast)}*%22`;
+  //       query += `%20AND%20alma.creator=*${encodeURIComponent(contributorLast)}*`;
   //     }
   //   }
 
@@ -137,7 +137,7 @@ export class LookUpService {
    
     // Build the query part for title
     if (title) {
-      query += `alma.title==%22*${encodeURIComponent(title)}*%22`;
+      query += `alma.title==*${encodeURIComponent(title)}*`;
     } else {
       return this.noResultsResponse(row, 'Title');  // Handle the case when no title is provided
     }
@@ -146,18 +146,18 @@ export class LookUpService {
     // Build the query part for author
     if (authorLast) {
       if (authorFirst) {
-        query += ` AND alma.creator=%22*${encodeURIComponent(authorLast)},${encodeURIComponent(authorFirst)}*%22`;
+        query += ` AND alma.creator=*${encodeURIComponent(authorLast)},${encodeURIComponent(authorFirst)}*`;
       } else {
-        query += ` AND alma.creator=%22*${encodeURIComponent(authorLast)}*%22`;
+        query += ` AND alma.creator=*${encodeURIComponent(authorLast)}*`;
       }
     }
   
     // Build the query part for contributor
     if (contributorLast) {
       if (contributorFirst) {
-        query += ` AND alma.creator=%22*${encodeURIComponent(contributorLast)},${encodeURIComponent(contributorFirst)}*%22`;
+        query += ` AND alma.creator=*${encodeURIComponent(contributorLast)},${encodeURIComponent(contributorFirst)}*`;
       } else {
-        query += ` AND alma.creator=%22*${encodeURIComponent(contributorLast)}*%22`;
+        query += ` AND alma.creator=*${encodeURIComponent(contributorLast)}*`;
       }
     }
   
@@ -555,7 +555,7 @@ console.log(`${url}?${queryParams.toString()}`)
   
   //   let query = ``;  // Construct the SRU query
   //   if (title) {
-  //     query += `&query=alma.title==%22*${encodeURIComponent(title)}*%22`;
+  //     query += `&query=alma.title==*${encodeURIComponent(title)}*`;
   //   } else {
   //     return this.noResultsResponse(row, 'Title');
   //   }
