@@ -101,6 +101,8 @@ export class LookUpService {
   private searchPrimoApi(row: any): Observable<any[]> {
     // Handle the inputs and transform them as in the PHP code
     let title = row['Title - Input'] || '';
+    console.log("Title");
+    console.log(title);
     let authorFirst = row['Author First - Input'] || '';
     let authorLast = row['Author Last - Input'] || '';
     let contributorFirst = row['Contributor First - Input'] || '';
@@ -142,6 +144,8 @@ export class LookUpService {
       return this.noResultsResponse(row, 'Title');  // Handle the case when no title is provided
     }
   
+    console.log("Parsed query component title");
+    console.log(title);
     
     // Build the query part for author
     if (authorLast) {
@@ -163,7 +167,7 @@ export class LookUpService {
   
     // Add year to query if present
     if (year) {
-      query += ` AND (alma.main_public_date=${year} OR alma.date_of_publication=${year})`;
+      query += ` AND %28alma.main_public_date=${year} OR alma.date_of_publication=${year}%29`;
     }
   
     var url = `${this.sruUrl.alma}/view/sru/${this.institutionCode}`//?version=1.2&operation=searchRetrieve&recordSchema=marcxml${query}`;
@@ -178,8 +182,9 @@ export class LookUpService {
   .set('recordSchema', 'marcxml')
   .set('query', query);
 
-console.log(`${url}?${queryParams.toString()}`)
- return this.http.get(`${url}?${queryParams.toString()}`, { responseType: 'text' })
+var fullURL = `${this.sruUrl.alma}/view/sru/${this.institutionCode}?version=1.2&operation=searchRetrieve&recordSchema=marcxml&query=${query}`;
+console.log(fullURL)
+ return this.http.get(fullURL, { responseType: 'text' })
  .pipe(
    concatMap((xmlResponse: string) => this.parseXMLResponse(xmlResponse)),
    concatMap(parsedData => this.processMARCData(parsedData, row)),
