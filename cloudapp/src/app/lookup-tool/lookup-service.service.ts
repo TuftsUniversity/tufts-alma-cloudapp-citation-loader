@@ -128,13 +128,25 @@ export class LookUpService {
 
   
     // Remove punctuation marks: , : ; . " ' “ ” ‘ ’
-    title = title.replace(/[,:;."'\“\”\‘\’]/g, ' ');
+    //title = title.replace(/[,:;."'\“\”\‘\’]/g, ' ');
+    title = title.normalize("NFD").replace(/[,:;."'\“\”\‘\’]/g, '');
+
+
+
+    console.log("after first normalize title");
+
+    console.log(title);
 
     // Replace hyphens with spaces (uncomment if needed)
     // title = title.replace(/[-]/g, ' ');
 
     // Replace ampersands with spaces
-    title = title.replace(/[&]/g, ' ');
+    title = title.replace(/&/g, ' ');
+
+    title = title.replace(/\s+/g, ' ').trim().normalize("NFC");
+
+    console.log("After second normalize title");
+    console.log(title)
 
    
     // Build the query part for title
