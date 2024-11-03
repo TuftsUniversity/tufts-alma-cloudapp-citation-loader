@@ -55,7 +55,7 @@ export class LookupToolComponent implements OnInit {
         var arr = new Array();
         for(var i = 0; i != data.length; ++i) arr[i] = String.fromCharCode(data[i]);
         var bstr = arr.join("");
-        var workbook = XLSX.read(bstr, {type:"binary", cellStyles: true });
+        var workbook = XLSX.read(bstr, {type:"binary", cellStyles: true, codepage: 65001 });
         var first_sheet_name = workbook.SheetNames[0];
         var worksheet = workbook.Sheets[first_sheet_name];
         //let courseIds = new Array();
