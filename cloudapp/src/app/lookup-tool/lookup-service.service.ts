@@ -129,7 +129,7 @@ export class LookUpService {
   
     // Remove punctuation marks: , : ; . " ' “ ” ‘ ’
     //title = title.replace(/[,:;."'\“\”\‘\’]/g, ' ');
-    title = title.normalize("NFD").replace(/[,:;\."'\“\”\‘\’]/g, '');
+    title = title.replace(/[,:;\."'\“\”\‘\’]/g, '');
 
 
 
