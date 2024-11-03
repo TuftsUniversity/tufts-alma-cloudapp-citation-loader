@@ -129,7 +129,7 @@ export class LookUpService {
   
     // Remove punctuation marks: , : ; . " ' “ ” ‘ ’
     //title = title.replace(/[,:;."'\“\”\‘\’]/g, ' ');
-    title = title.normalize("NFD").replace(/[,:;."'\“\”\‘\’]/g, '');
+    title = title.normalize("NFD").replace(/[,:;\."'\“\”\‘\’]/g, '');
 
 
 
@@ -194,7 +194,8 @@ export class LookUpService {
   .set('recordSchema', 'marcxml')
   .set('query', query);
 
-var fullURL = `${this.sruUrl.alma}/view/sru/${this.institutionCode}?version=1.2&operation=searchRetrieve&recordSchema=marcxml&query=${query}`;
+const baseUrl = this.sruUrl.alma.replace(/\/+$/, '');
+var fullURL = `${baseUrl}/view/sru/${this.institutionCode}?version=1.2&operation=searchRetrieve&recordSchema=marcxml&query=${query}`;
 console.log(fullURL)
  return this.http.get(fullURL, { responseType: 'text' })
  .pipe(
