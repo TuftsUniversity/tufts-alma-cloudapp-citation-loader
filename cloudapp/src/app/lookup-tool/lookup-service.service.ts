@@ -129,7 +129,7 @@ export class LookUpService {
   
     // Remove punctuation marks: , : ; . " ' “ ” ‘ ’
     //title = title.replace(/[,:;."'\“\”\‘\’]/g, ' ');
-    title = title.replace(/[,:;\."'\u201C\u201D\u2018\u2019]/g, '');
+    title = title.replace(/[,:;\."\u201C\u201D\u2018\u2019]/g, '');
 
 
 
