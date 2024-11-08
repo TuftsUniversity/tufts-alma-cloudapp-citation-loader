@@ -61,17 +61,22 @@ export class LookupToolComponent implements OnInit {
         //let courseIds = new Array();
 
         let items: any[] =XLSX.utils.sheet_to_json(worksheet,{defval:"", skipHidden: true});
+        
+          // Collect all existing keys
+          items = items.map(row => {
+          const updatedRow = {}; // Create a new object to store updated keys and values
+        
+          Object.keys(row).forEach(key => {
+              const trimmedKey = key.trim();  // Trim the key
+           
+              updatedRow[trimmedKey] = row[key]; // Add to the updated row with trimmed key
+          });
+      
+          return updatedRow; // Replace the original row with the updated row
+      });
+        
         this.processRows(items);
-        //items.forEach(citation => {
-        //  console.log(JSON.stringify(citation))
-        //});
-        //var data = new Uint8Array(this.arrayBuffer);
-        //var arr = new Array();
-        //for(var i = 0; i != data.length; ++i) arr[i] = String.fromCharCode(data[i]);
-        //var bstr = arr.join("");
-        //var workbook = XLSX.read(bstr, {type:"binary", cellStyles: true });
-        //var first_sheet_name = workbook.SheetNames[0];
-        //var worksheet = workbook.Sheets[first_sheet_name]; 
+       
     } 
 
     fileReader.readAsArrayBuffer(this.files[0]);
@@ -83,71 +88,34 @@ export class LookupToolComponent implements OnInit {
     const workbook = XLSX.read(data, { type: 'binary' });
     const sheetName = workbook.SheetNames[0];
     const worksheet = workbook.Sheets[sheetName];
-    const json: any[] = XLSX.utils.sheet_to_json(worksheet);
+    
+    let json: any[] = XLSX.utils.sheet_to_json(worksheet);
 
-    let existingKeys = [];
+   
 
     // Collect all existing keys
-    json.forEach(row => {
-
-        for (let key in row) {
-            const trimmedKey = key.trim();  // Trim the key
-            existingKeys.push(trimmedKey);
-
-        // Replace original key with trimmed version if necessary
-        if (trimmedKey !== key) {
-            row[trimmedKey] = row[key];
-            delete row[key];
-        }
-    }
-    });
+    json = json.map(row => {
+      const updatedRow = {}; // Create a new object to store updated keys and values
+    
+      Object.keys(row).forEach(key => {
+          const trimmedKey = key.trim();  // Trim the key
+          
+          updatedRow[trimmedKey] = row[key]; // Add to the updated row with trimmed key
+      });
+  
+      return updatedRow; // Replace the original row with the updated row
+  });
     this.processRows(json);
   }
 
-//   processRows(json: any[]): void {
-//     this.courseData = []; // Reset courseData to start fresh
-//     let totalCitations = json.length;
-//     let processedCitations = 0;
-//     this.loading = true;
-    
-//     of(...json)
-//       .pipe(
-//         concatMap(row => 
-//           this.lookUpService.handleRequest(this.processRow(row)).pipe(
-//             concatMap((processedRow: any) => {
-//               this.courseData.push(processedRow);  // Push each row's result into courseData
-//               processedCitations++;
-//               this.progressBarValue = (processedCitations / totalCitations) * 100; // Update progress
-//               return of(processedRow);  // Return processed row for sequential processing
-//             }),
-//             catchError(error => {
-//               console.error('Error processing row:', error);
-//               return of(null); // Skip errors and continue processing other rows
-//             })
-//           )
-//         )
-
-        
-//       )
-//       .subscribe({
-//         //next: (processedRow: any) => {
-//         //  this.courseData.push(processedRow);
-//         //},
-//         complete: () => {
-//           // After all rows have been processed, generate the Excel file
-//           this.generateExcel();
-//         },
-//         error: (error) => {
-//           console.error('Error processing rows:', error);
-//         }
-//       });
-// }
   
 processRows(json: any[]): void {
   this.courseData = [];
   let totalCitations = json.length;
   let processedCitations = 0;
   this.loading = true;
+  console.log(JSON.stringify(json));
+
   from(json).pipe(
     concatMap(row => this.lookUpService.handleRequest(this.processRow(row)).pipe(
       tap(result => {
@@ -221,25 +189,6 @@ processRows(json: any[]): void {
     return c_row;
   }
 
-  // sendDataToLookUpService(): void {
-
-  //   console.log(JSON.stringify(this.courseData));
-  //   this.courseData.reduce((promise, row) => {
-  //     return promise.then(() => {
-  //       // Call the LookUpService's handleRequest method instead of making an API call
-  //       return this.lookUpService.handleRequest(row).toPromise()
-  //         .then((response: any) => {
-  //           console.log('Service response:', response);
-  //         })
-  //         .catch((error) => {
-  //           console.error('Error:', error);
-  //           alert('Error: ' + error.message);
-  //         });
-  //     });
-  //   }, Promise.resolve()).then(() => {
-  //     this.generateExcel();
-  //   });
-  // }
   sendDataToLookUpService(): void {
     // Now that courseData is populated, generate the Excel file
     if (this.courseData.length > 0) {
@@ -251,7 +200,7 @@ processRows(json: any[]): void {
   
   generateExcel(): void {
     let data = [];
-    //(JSON.stringify(this.courseData));
+   
     console.log(JSON.stringify(this.courseData));
     //console.log(JSON.stringify(this.courseData))
     if (this.courseData != null && this.courseData != undefined && this.courseData.length > 1) {
@@ -295,11 +244,11 @@ processRows(json: any[]): void {
               course_name = result['Course Name'];
             }
 
-            if (result['course_code']) {
+            if (result['Course Code']) {
                 course_code = result['course_code'];
             }
 
-            if (result['course_section']) {
+            if (result['Course Section']) {
                 course_section = result['course_section'];
             }
 
@@ -347,7 +296,7 @@ processRows(json: any[]): void {
                 'Barcode': barcode,
                 'Description': description,
                 'Citation Type': '',
-                'section_info': result['section_info'] || '',
+                'Section Info': result['section_info'] || '',
                 'Item Policy': result['item_policy'] || result['Item Policy'] || ''
             };
 
@@ -406,11 +355,11 @@ processRows(json: any[]): void {
           course_name = result['Course Name'];
         }
 
-        if (result['course_code']) {
+        if (result['Course Code']) {
             course_code = result['course_code'];
         }
 
-        if (result['course_section']) {
+        if (result['Course Section']) {
             course_section = result['course_section'];
         }
 
@@ -462,7 +411,7 @@ processRows(json: any[]): void {
             'Barcode': barcode,
             'Description': description,
             'Citation Type': '',
-            'section_info': '',
+            'Section Info': '',
             'Item Policy': ''
         };
 
@@ -476,18 +425,11 @@ processRows(json: any[]): void {
         }
 
         var newRow = Object.assign(newValues, row);
-        //console.log(JSON.stringify(newRow));
+   
         data.push(newRow);
     }
-    // let finalData = [];
 
-    // data.forEach(result => {
-    //   JSON.stringify(result);
-    //   finalData.push(result["0"])
 
-    // });
-    this.loading = false;
-   // console.log(JSON.stringify(data));
     // Generate the Excel file with the collected data
     const ws = XLSX.utils.json_to_sheet(data);
     const wb = XLSX.utils.book_new();
