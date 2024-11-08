@@ -267,10 +267,6 @@ processRows(json: any[]): void {
                 author = result['Author'];
             }
 
-            if (result['Contributor']) {
-                contributor = result['Contributor'];
-            }
-
             if (result['Publisher']) {
                 publisher = result['Publisher'];
             }
@@ -295,12 +291,12 @@ processRows(json: any[]): void {
               course_name = result['Course Name'];
             }
 
-            if (result['course_code']) {
-                course_code = result['course_code'];
+            if (result['Course Code']) {
+                course_code = result['Course Code'];
             }
 
-            if (result['course_section']) {
-                course_section = result['course_section'];
+            if (result['Course Section']) {
+                course_section = result['Course Section'];
             }
 
             if (result['Library']) {
@@ -330,15 +326,14 @@ processRows(json: any[]): void {
             let row = {
                 'Title': title,
                 'Author': author,
-                'Contributor': contributor,
                 'Publisher': publisher,
                 'Date': date,
                 'MMS ID': mms_id,
                 'ISBN': isbn,
                 'Version': version,
                 'Course Name': course_name,
-                'course_code': course_code,
-                'course_section': course_section,
+                'Course Code': course_code,
+                'Course Section': course_section,
                 'Course Instructor': course_instructor,
                 'Returned Format': format,
                 'Library': library,
@@ -378,10 +373,6 @@ processRows(json: any[]): void {
             author = result['Author'];
         }
 
-        if (result['Contributor']) {
-            contributor = result['Contributor'];
-        }
-
         if (result['Publisher']) {
             publisher = result['Publisher'];
         }
@@ -406,12 +397,12 @@ processRows(json: any[]): void {
           course_name = result['Course Name'];
         }
 
-        if (result['course_code']) {
-            course_code = result['course_code'];
+        if (result['Course Code']) {
+            course_code = result['Course Code'];
         }
 
         if (result['course_section']) {
-            course_section = result['course_section'];
+            course_section = result['Course Section'];
         }
 
         if (result['Course Instructor']) {
@@ -445,15 +436,14 @@ processRows(json: any[]): void {
         let row = {
             'Title': title,
             'Author': author,
-            'Contributor': contributor,
             'Publisher': publisher,
             'Date': date,
             'MMS ID': mms_id,
             'ISBN': isbn,
             'Version': version,
             'Course Name': course_name,
-            'course_code': course_code,
-            'course_section': course_section,
+            'Course Code': course_code,
+            'Course Section': course_section,
             'Course Instructor': course_instructor,
             'Returned Format': format,
             'Library': library,

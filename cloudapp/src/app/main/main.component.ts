@@ -165,7 +165,7 @@ ngOnInit() {
         let mms_id = "MMS ID"
         let items: any[] =XLSX.utils.sheet_to_json(worksheet,{defval:"", skipHidden: true});
         items = items.sort((a, b) => {
-          if (a.course_code < b.course_code) {
+          if (a["Course Code"] < b["Course Code"]) {
             return -1;
           }
         });

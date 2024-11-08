@@ -3,7 +3,7 @@ import { CloudAppRestService, CloudAppEventsService  } from '@exlibris/exl-cloud
 import { HttpClient } from '@angular/common/http';
 
 import { of, throwError, forkJoin, Observable } from 'rxjs';
-import { map, concatMap, catchError } from 'rxjs/operators';
+import { map, concatMap, catchError, tap } from 'rxjs/operators';
 import { HttpParams } from '@angular/common/http';
 
 @Injectable({
@@ -219,8 +219,8 @@ console.log(fullURL)
                courseData.map(course => ({
                  ...marcResult,
                  'Course Name': course['course_name'],
-                 'course_code': course['course_code'],
-                 'course_section': course['course_section'],
+                 'Course Code': course['course_code'],
+                 'Course Section': course['course_section'],
                  'Course Instructor': course['instructors']
                }))
              );
@@ -471,10 +471,12 @@ console.log(fullURL)
   
     // Use forkJoin to combine the observables and return a flattened result
     return forkJoin(observables).pipe(
+      
       map(resultsArray => {
         // Flatten the results from both physical and electronic items
         return resultsArray.reduce((acc, val) => acc.concat(val), []); // Flattening the array
       }),
+
       catchError(err => {
         console.error('Error in extractMARCData:', err);
         return of([]);  // Return an empty array if an error occurs
@@ -639,6 +641,7 @@ console.log(fullURL)
                   }
                 });
               });
+              console.log(JSON.stringify(extractedData));
               return extractedData; // Return the modified data
             })
           )
@@ -649,6 +652,7 @@ console.log(fullURL)
       return forkJoin(observables).pipe(
         map((combinedResults: any[]) => {
           // Flatten the combined results array into a single-level array
+          console.log(combinedResults);
           return combinedResults.reduce((acc, val) => acc.concat(val), []);
         })
       );
