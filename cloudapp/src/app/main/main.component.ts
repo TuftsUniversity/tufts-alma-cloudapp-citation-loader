@@ -267,6 +267,13 @@ ngOnInit() {
                 reading_list_section = item.section_info;
                 
               }
+
+              else if ("Section Info" in item){
+                reading_list_section = item['Section Info'];
+              }
+
+
+              
               let course_section: string;
               let course_code_and_section: string;
               if ("Course Section" in item){
@@ -283,7 +290,7 @@ ngOnInit() {
                 }
               }
 
-              if ("course_section" in item){
+              else if ("course_section" in item){
                 if (item['course_section'] != ""){
                 
                 course_section = item['course_section'];

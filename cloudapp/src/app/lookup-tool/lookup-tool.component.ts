@@ -206,7 +206,7 @@ processRows(json: any[]): void {
     if (this.courseData != null && this.courseData != undefined && this.courseData.length > 1) {
       //console.log("true")
         this.courseData.forEach(result => {
-            let title, author, contributor, publisher, date, mms_id, isbn, version, course_name, course_code, course_section, course_instructor, library, library_location, call_number, barcode, description, format;
+            let title, author, publisher, date, mms_id, isbn, version, course_name, course_code, course_section, course_instructor, library, library_location, call_number, barcode, description, format;
 
             if (result['Title']) {
                 title = result['Title'];
@@ -216,16 +216,12 @@ processRows(json: any[]): void {
                 author = result['Author'];
             }
 
-            if (result['Contributor']) {
-                contributor = result['Contributor'];
-            }
-
             if (result['Publisher']) {
                 publisher = result['Publisher'];
             }
 
-            if (result['Year']) {
-                date = result['Year'];
+            if (result['Date']) {
+                date = result['Date'];
             }
 
             if (result['MMS ID']) {
@@ -245,11 +241,11 @@ processRows(json: any[]): void {
             }
 
             if (result['Course Code']) {
-                course_code = result['course_code'];
+                course_code = result['Course Code'];
             }
 
             if (result['Course Section']) {
-                course_section = result['course_section'];
+                course_section = result['Course Section'];
             }
 
             if (result['Library']) {
@@ -279,15 +275,14 @@ processRows(json: any[]): void {
             let row = {
                 'Title': title,
                 'Author': author,
-                'Contributor': contributor,
                 'Publisher': publisher,
                 'Date': date,
                 'MMS ID': mms_id,
                 'ISBN': isbn,
                 'Version': version,
                 'Course Name': course_name,
-                'course_code': course_code,
-                'course_section': course_section,
+                'Course Code': course_code,
+                'Course Section': course_section,
                 'Course Instructor': course_instructor,
                 'Returned Format': format,
                 'Library': library,
@@ -315,7 +310,7 @@ processRows(json: any[]): void {
         });
     } else {
         // Handling the case where there's only one result
-        let title, author, contributor, publisher, date, mms_id, isbn, version, course_name, course_code, course_section, course_instructor, library, library_location, call_number, barcode, description, format;
+        let title, author, publisher, date, mms_id, isbn, version, course_name, course_code, course_section, course_instructor, library, library_location, call_number, barcode, description, format;
 
         let result = this.courseData[0]; // Assuming the first and only entry
 
@@ -327,16 +322,12 @@ processRows(json: any[]): void {
             author = result['Author'];
         }
 
-        if (result['Contributor']) {
-            contributor = result['Contributor'];
-        }
-
         if (result['Publisher']) {
             publisher = result['Publisher'];
         }
 
-        if (result['Year']) {
-            date = result['Year'];
+        if (result['Date']) {
+            date = result['Date'];
         }
 
         if (result['MMS ID']) {
@@ -356,11 +347,11 @@ processRows(json: any[]): void {
         }
 
         if (result['Course Code']) {
-            course_code = result['course_code'];
+            course_code = result['Course Code'];
         }
 
         if (result['Course Section']) {
-            course_section = result['course_section'];
+            course_section = result['Course Section'];
         }
 
         if (result['Course Instructor']) {
@@ -394,15 +385,14 @@ processRows(json: any[]): void {
         let row = {
             'Title': title,
             'Author': author,
-            'Contributor': contributor,
             'Publisher': publisher,
             'Date': date,
             'MMS ID': mms_id,
             'ISBN': isbn,
             'Version': version,
             'Course Name': course_name,
-            'course_code': course_code,
-            'course_section': course_section,
+            'Coruse Code': course_code,
+            'Course Section': course_section,
             'Course Instructor': course_instructor,
             'Returned Format': format,
             'Library': library,
@@ -429,7 +419,7 @@ processRows(json: any[]): void {
         data.push(newRow);
     }
 
-
+    this.loading = false;
     // Generate the Excel file with the collected data
     const ws = XLSX.utils.json_to_sheet(data);
     const wb = XLSX.utils.book_new();

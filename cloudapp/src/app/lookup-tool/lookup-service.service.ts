@@ -4,6 +4,7 @@ import { HttpClient } from '@angular/common/http';
 
 import { of, throwError, forkJoin, Observable } from 'rxjs';
 import { map, concatMap, catchError } from 'rxjs/operators';
+import { MatCardAvatar } from '@angular/material/card';
 
 
 @Injectable({
@@ -114,9 +115,18 @@ var fullURL = `${baseUrl}/view/sru/${this.institutionCode}?version=1.2&operation
 
  return this.http.get(fullURL, { responseType: 'text' })
  .pipe(
-   concatMap((xmlResponse: string) => this.parseXMLResponse(xmlResponse)),
-   concatMap(parsedData => this.processMARCData(parsedData, row)),
+   concatMap((xmlResponse: string) => {
+    console.log(xmlResponse);
+    return this.parseXMLResponse(xmlResponse) 
+   }
+    
+  ),
+   concatMap(parsedData => 
+    {
+      console.log(JSON.stringify(parsedData));
+      return this.processMARCData(parsedData, row)}),
    concatMap((marcResults: any[]) => {
+    console.log(JSON.stringify(marcResults));
      // Validate if marcResults is a proper array
      if (!Array.isArray(marcResults) || marcResults.length === 0) {
        console.warn('No MARC results found.');
@@ -125,17 +135,20 @@ var fullURL = `${baseUrl}/view/sru/${this.institutionCode}?version=1.2&operation
 
      // Map each MARC result to an observable from getCourseData()
      const courseDataObservables = marcResults.map((marcResult: any) => {
+      console.log(JSON.stringify(marcResult));
        // Ensure getCourseData returns an observable
        return this.getCourseData(row).pipe(
          concatMap((courseData: any[]) => {
+          console.log(JSON.stringify(courseData));
            // If multiple courses, map each course to the MARC result
            if (courseData.length > 0) {
+            console.log(JSON.stringify(courseData));
              return of(
                courseData.map(course => ({
                  ...marcResult,
                  'Course Name': course['course_name'],
-                 'course_code': course['course_code'],
-                 'course_section': course['course_section'],
+                 'Course Code': course['course_code'],
+                 'Course Section': course['course_section'],
                  'Course Instructor': course['instructors']
                }))
              );
@@ -210,8 +223,50 @@ var fullURL = `${baseUrl}/view/sru/${this.institutionCode}?version=1.2&operation
     });
   }
 
+  private extractDateFromRecord(record: Element): string | null {
+    // Fetch the 'controlfield' element with tag '008'
+    const controlFields = record.getElementsByTagNameNS("http://www.loc.gov/MARC21/slim", "controlfield");
+    let date008: string | null = null;
 
-  
+    for (let i = 0; i < controlFields.length; i++) {
+        const controlField = controlFields[i];
+        const tag = controlField.getAttribute("tag");
+        if (tag === "008") {
+            date008 = controlField.textContent;
+            break;
+        }
+    }
+
+    // If the 008 field was found, parse the date
+    if (date008) {
+        return this.getPreferredDate(date008);
+    }
+
+    return null; // Return null if 008 field is not found
+}
+
+  // Function to extract date from MARC 008 field
+private extractDates(date008: string): { date1: string | null; date2: string | null } {
+  // Date 1 is located at position 7-10 (4 characters)
+  const date1 = date008.slice(7, 11);
+  // Date 2 is located at position 11-14 (4 characters)
+  const date2 = date008.slice(11, 15);
+
+  // Check if Date 1 and Date 2 are valid numeric dates (they should be 4-digit years)
+  const isValidYear = (year: string) => /^\d{4}$/.test(year);
+
+  return {
+      date1: isValidYear(date1) ? date1 : null,
+      date2: isValidYear(date2) ? date2 : null
+  };
+}
+
+// Function to get preferred date, choosing Date 2 if available, otherwise Date 1
+private getPreferredDate(date008: string): string | null {
+  const { date1, date2 } = this.extractDates(date008);
+  return date2 || date1;  // Prefer Date 2 if valid, else Date 1
+}
+
 
 
   private extractMARCData(record: Element, row: any): Observable<any[]> {
@@ -246,6 +301,11 @@ var fullURL = `${baseUrl}/view/sru/${this.institutionCode}?version=1.2&operation
                   location = item['holding_data']['temp_location']['desc'];
                 }
   
+                const date = this.extractDateFromRecord(record);
+   
+
+                console.log("Date from 008");
+                console.log(date)
                 // Avoid duplicate barcodes
                 if (!barcodeArray.includes(item['item_data']['barcode'])) {
                   barcodeArray.push(item['item_data']['barcode']);
@@ -254,7 +314,7 @@ var fullURL = `${baseUrl}/view/sru/${this.institutionCode}?version=1.2&operation
                     Title: xpath('245', 'a') + ' ' + xpath('245', 'b'),
                     Author: author,
                     Publisher: xpath('264', 'b'),
-                    Date: xpath('264', 'c'),
+                    Date: date,
                     'MMS ID': physMmsId,
                     ISBN: xpath('020', 'a'),
                     Library: library,
@@ -268,7 +328,7 @@ var fullURL = `${baseUrl}/view/sru/${this.institutionCode}?version=1.2&operation
               });
             }
 
-
+            console.log(JSON.stringify(physicalResults));
             return physicalResults;
           }),
           catchError(err => {
@@ -287,18 +347,25 @@ var fullURL = `${baseUrl}/view/sru/${this.institutionCode}?version=1.2&operation
       const eMmsId = xpath('AVE', '0');
       if (eMmsId && !electronicRecordArray.includes(`${eMmsId}Electronic`)) {
         electronicRecordArray.push(`${eMmsId}Electronic`);
-        
+        let date008String = xpath('008');
+
+
+        const date = this.extractDateFromRecord(record);
+   
+
+        console.log("Date from 008");
+        console.log(date)
         // Handle electronic items inline (no need for an API call here)
         const electronicResults = [{
           Title: xpath('245', 'a') + ' ' + xpath('245', 'b'),
           Author: xpath('100', 'a') || xpath('110', 'a') || xpath('700', 'a') || xpath('710', 'a'),
           Publisher: xpath('264', 'b'),
-          Date: xpath('264', 'c'),
+          Date: date,
           'MMS ID': eMmsId,
           ISBN: xpath('020', 'a'),
           'Returned Format': 'Electronic'
         }];
-  
+        console.log(JSON.stringify(electronicResults));
         // Create an observable for electronic items and add it to the array
         observables.push(of(electronicResults));
       }
@@ -307,6 +374,7 @@ var fullURL = `${baseUrl}/view/sru/${this.institutionCode}?version=1.2&operation
     // Use forkJoin to combine the observables and return a flattened result
     return forkJoin(observables).pipe(
       map(resultsArray => {
+        console.log(JSON.stringify(resultsArray.reduce((acc, val) => acc.concat(val), [])));
         // Flatten the results from both physical and electronic items
         return resultsArray.reduce((acc, val) => acc.concat(val), []); // Flattening the array
       }),
@@ -322,17 +390,19 @@ var fullURL = `${baseUrl}/view/sru/${this.institutionCode}?version=1.2&operation
 
   private processMARCData(xmlDoc: Document, row: any): Observable<any[]> {
     const results: any[] = [];
+    
     const records = xmlDoc.getElementsByTagNameNS("http://www.loc.gov/MARC21/slim", 'record'); // Fetch all 'record' elements
     const observables: Observable<any[]>[] = []; // Array to store the observables for each record
-
+    console.log(records);
     if (records.length > 0) {
       for (let i = 0; i < records.length; i++) {
         const record = records[i];
-        
+        console.log(record);
         // Call extractMARCData and collect its observable
         observables.push(
           this.extractMARCData(record, row).pipe(
             map((extractedData: any[]) => {
+              console.log(JSON.stringify(extractedData));
               // Add additional fields from the row to each extracted result
               extractedData.forEach(result => {
                 Object.keys(row).forEach(key => {
@@ -341,6 +411,7 @@ var fullURL = `${baseUrl}/view/sru/${this.institutionCode}?version=1.2&operation
                   }
                 });
               });
+              console.log(JSON.stringify(extractedData));
               return extractedData; // Return the modified data
             })
           )
@@ -350,6 +421,7 @@ var fullURL = `${baseUrl}/view/sru/${this.institutionCode}?version=1.2&operation
       // Use forkJoin to execute all observables concurrently and wait for all to complete
       return forkJoin(observables).pipe(
         map((combinedResults: any[]) => {
+          console.log(JSON.stringify(combinedResults));
           // Flatten the combined results array into a single-level array
           return combinedResults.reduce((acc, val) => acc.concat(val), []);
         })
