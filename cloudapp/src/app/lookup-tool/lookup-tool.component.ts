@@ -391,7 +391,7 @@ processRows(json: any[]): void {
             'ISBN': isbn,
             'Version': version,
             'Course Name': course_name,
-            'Coruse Code': course_code,
+            'Course Code': course_code,
             'Course Section': course_section,
             'Course Instructor': course_instructor,
             'Returned Format': format,
