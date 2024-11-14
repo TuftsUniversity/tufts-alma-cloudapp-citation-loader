@@ -1,9 +1,13 @@
-
+<ng-template #error_msg>
+  <h1>This app needs to be configured first</h1>
+  
+</ng-template>
 
 <div>
   
   <a [routerLink]="['settings']">To settings</a>
 </div>
+<div *ngIf="config; else error_msg">
 <div class="cloudapp-actions" align="end">
   <button mat-flat-button type="button" color="primary" (click)="loadExecl()" [disabled]="files.length==0 || loading">{{ 'Main.LoadItems' | translate }}</button>
 </div>
@@ -16,6 +20,7 @@
     <ngx-dropzone-label>{{ f.name }}</ngx-dropzone-label>
   </ngx-dropzone-preview>
 </ngx-dropzone>
+</div>
 </div>
 <div>
   <a [routerLink]="['']">To Lookup Tool</a>
