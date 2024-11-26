@@ -144,25 +144,31 @@ private handleOtherError<T, O extends ObservableInput<any>>(
       mms_id = item['MMS ID'].replace(/[\{\}"']/g, "");
     }
 
+    course_code = course_code.replace(/\s/g, "%2b")
+    course_code = course_code.replace(/%20/g, "%2b")
     let course_section: string;
     let course_code_and_section: string;
     let course_code_and_section_url: string;
     if ('course_section' in item && item.course_section != ''){
       course_section = item.course_section;
+      course_section = course_section.replace(/\s/g, "%2b")
+      course_section = course_section.replace(/%20/g, "%2b")
       course_code_and_section = course_code + "-" + course_section;
-      course_code_and_section_url = `/courses?q=code~${course_code}%20AND%20section~${course_section}`;
+      course_code_and_section_url = `/courses?q=code~%22${course_code}%22%20AND%20section~%22${course_section}%22`;
     }
 
     else if ('Course Section' in item){
       course_section = item['Course Section'];
+      course_section = course_section.replace(/\s/, "%2b")
+      course_section = course_section.replace(/%20/g, "%2b")
       course_code_and_section = course_code + "-" + course_section;
-      course_code_and_section_url = `/courses?q=code~${course_code}%20AND%20section~${course_section}`;
+      course_code_and_section_url = `/courses?q=code~%22${course_code}%22%20AND%20section~%22${course_section}%22`;
 
     }
 
     else{
 
-      course_code_and_section_url = `/courses?q=code~${course_code}`;
+      course_code_and_section_url = `/courses?q=code~%22${course_code}%22`;
     }
 
 
