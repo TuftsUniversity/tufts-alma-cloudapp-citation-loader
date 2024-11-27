@@ -154,21 +154,21 @@ private handleOtherError<T, O extends ObservableInput<any>>(
       course_section = course_section.replace(/\s/g, "%2b")
       course_section = course_section.replace(/%20/g, "%2b")
       course_code_and_section = course_code + "-" + course_section;
-      course_code_and_section_url = `/courses?q=code~%22${course_code}%22%20AND%20section~%22${course_section}%22`;
+      course_code_and_section_url = `/courses?q=code~${course_code}%20AND%20section~${course_section}`;
     }
 
-    else if ('Course Section' in item){
+    else if ('Course Section' in item && item['Course Section'] != ''){
       course_section = item['Course Section'];
       course_section = course_section.replace(/\s/, "%2b")
       course_section = course_section.replace(/%20/g, "%2b")
       course_code_and_section = course_code + "-" + course_section;
-      course_code_and_section_url = `/courses?q=code~%22${course_code}%22%20AND%20section~%22${course_section}%22`;
+      course_code_and_section_url = `/courses?q=code~${course_code}%20AND%20section~${course_section}`;
 
     }
 
     else{
 
-      course_code_and_section_url = `/courses?q=code~%22${course_code}%22`;
+      course_code_and_section_url = `/courses?q=code~${course_code}`;
     }
 
 
@@ -193,6 +193,7 @@ private handleOtherError<T, O extends ObservableInput<any>>(
       
       
       let url= course_code_and_section_url;
+      console.log(url);
       return this.restService.call(url).pipe(
       
         
@@ -300,6 +301,7 @@ isRepeat(listItem: String, lastItem: String, processed){
 }
 readingListLookup(course: any, course_code: any, course_id: any, previousReadingListCourseCode: any, previousRLEntry: any, processed: number, valid: boolean, pub_status: string, visibility: string) {
  
+
     if (valid){
     
 
@@ -309,7 +311,7 @@ readingListLookup(course: any, course_code: any, course_id: any, previousReading
 
      
      
-      //console.log(url);
+      console.log(url);
 
       
 
