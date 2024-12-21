@@ -21,7 +21,7 @@
          "modals": true
       },
       "connectSrc": [
-         "self"
+         "*"
       ]
    }
 }
