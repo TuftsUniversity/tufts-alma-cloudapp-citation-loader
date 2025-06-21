@@ -10,7 +10,7 @@
     <form
       (ngSubmit)="onSubmit(form)"
       #form="ngForm"
-      *ngIf="!loading; else loading_spinner">
+      *ngIf="!loading && config; else loading_spinner">
       <div class="eca-actions">
         <a [routerLink]="['/main']" style="float: right">
           <button mat-flat-button color="secondary">
@@ -119,6 +119,54 @@
         </mat-checkbox>
         
       </div>
+      <h5>Course Name Format</h5>
+      <mat-form-field appearance="fill" class="w-100">
+        <mat-label>Course Name Format</mat-label>
+        <input matInput
+               name="coursePattern"
+               [(ngModel)]="config.coursePattern"
+               placeholder="e.g. {semester}-{course}-{year}" />
+      </mat-form-field>
+      
+      <small class="form-text text-muted">
+        Use: <code>{{ '{' }}semester{{ '}' }}</code>, 
+             <code>{{ '{' }}course{{ '}' }}</code>, 
+             <code>{{ '{' }}year{{ '}' }}</code>
+      </small>
+      
+        <h5 class="mt-4">Semester Mappings</h5>
+        <p class="text-muted">Define how each semester appears in course names.</p>
+        
+        <div class="form-group mb-3">
+            <label for="springMapping">Spring</label>
+            <input id="springMapping" name="springMapping" type="text" class="form-control"
+                   [(ngModel)]="config.semesterMappings['Spring']"
+                   placeholder='e.g. "Sp" or "02" or other' />
+          </div>
+          
+          <div class="form-group mb-3">
+            <label for="summerMapping">Summer</label>
+            <input id="summerMapping" name="summerMapping" type="text" class="form-control"
+                   [(ngModel)]="config.semesterMappings['Summer']"
+                   placeholder='e.g. "Su" or "05" or other' />
+          </div>
+          
+          <div class="form-group mb-3">
+            <label for="fallMapping">Fall</label>
+            <input id="fallMapping" name="fallMapping" type="text" class="form-control"
+                   [(ngModel)]="config.semesterMappings['Fall']"
+                   placeholder='e.g. "Fa" or "08" or other' />
+          </div>
+          
+          <div class="form-group mb-3">
+            <label for="annualMapping">Annual</label>
+            <input id="annualMapping" name="annualMapping" type="text" class="form-control"
+                   [(ngModel)]="config.semesterMappings['Annual']"
+                   placeholder='e.g. "An" or "04" or other' />
+          </div>
+          
+        
+
     </form>
   </section>
       <!-- <button mat-stroked-button color="primary" type="submit" [disabled]="!form.valid">

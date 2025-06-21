@@ -10,3 +10,24 @@ export class Settings {
     //showValue: boolean = false;
     
   }
+
+  // settings.model.ts
+
+export interface Settings {
+    // Already existing settings properties...
+  
+    coursePattern?: string;
+    useLegacyMapping?: boolean;
+    manualCourseEntry?: boolean;
+    semesterMappings?: {
+      [key: string]: string;  // e.g., { "Spring": "2", "Summer": "5" }
+    };
+  }
+
+  export interface CourseResult {
+    course_name: string;
+    course_code: string;
+    course_section: string;
+    instructors: string;
+  }
+  

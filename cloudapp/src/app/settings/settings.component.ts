@@ -20,7 +20,9 @@ import { catchError, finalize, map } from "rxjs/operators";
   templateUrl: "./settings.component.html",
   styleUrls: ["./settings.component.scss"],
 })
+
 export class SettingsComponent implements OnInit {
+    
   config: Configuration = new Configuration();
   libraries: Library[] = [];
   isChecked: boolean;
@@ -29,7 +31,7 @@ export class SettingsComponent implements OnInit {
   citation_complete: boolean = false;
   pub_status: string = "";
   visibility: string = "";
-
+  
   loading: boolean = false;
   work_order_types :string[] =[];
 
@@ -44,9 +46,10 @@ export class SettingsComponent implements OnInit {
     this.loading = true;
     let rest = this.restService.call("/conf/libraries/");
     let config = this.settingsService.get();
-  
+    
     forkJoin({ rest, config }).subscribe({
       next: (value) => {
+        this.config = Object.assign(new Configuration(), value.config);
        // console.log(value);
         this.libraries = value.rest.library as Library[];
         let emptyLib: Library = { link:"", code:"INST_LEVEL", path:"", name:"Institution Level", description:"",
@@ -55,7 +58,20 @@ export class SettingsComponent implements OnInit {
         this.locations = value.rest.locations as Location[];
   
         if (value.config && Object.keys(value.config).length !== 0) {
-          this.config = value.config;
+            if (value.config) {
+                this.config = {
+                  coursePattern: '{semester}-{course}-{year}',
+                  useLegacyMapping: false,
+                  manualCourseEntry: false,
+                  semesterMappings: {
+                    Spring: '',
+                    Summer: '',
+                    Fall: '',
+                    Annual: ''
+                  },
+                  ...value.config
+                };
+          
           this.isChecked = this.config.isChecked; 
           this.moveRequested = this.config.moveRequested; 
           this.pub_status = this.config.mustConfig.pub_status;
@@ -63,7 +79,7 @@ export class SettingsComponent implements OnInit {
           //console.log(JSON.stringify(this.config));
           this.onLibraryChange(value.config.mustConfig.library, true);
         }
-      },
+      }},
       error: (err) => {
         console.error(err.message);
         this.alert.error(err.message);

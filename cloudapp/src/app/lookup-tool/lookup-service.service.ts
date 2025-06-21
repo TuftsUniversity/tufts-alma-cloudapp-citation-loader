@@ -6,16 +6,21 @@ import { of, throwError, forkJoin, Observable, observable } from 'rxjs';
 import { map, concatMap, catchError } from 'rxjs/operators';
 import { MatCardAvatar } from '@angular/material/card';
 
-
+import { CloudAppSettingsService } from '@exlibris/exl-cloudapp-angular-lib';
+import { Settings } from '../models/settings.model'; // or wherever it's defined
+import { CourseResult } from '../models/course-result.model';   
 @Injectable({
   providedIn: 'root',
 })
 export class LookUpService {
 
+  private settings: Settings;
+
   private sruUrl: any;  // To store SRU URL
   private institutionCode: string = '';  // To store institution code
-
+  
   constructor(
+    private settingsService: CloudAppSettingsService,
     private restService: CloudAppRestService,
     private http: HttpClient,
     private initDataService: CloudAppEventsService 
@@ -23,7 +28,12 @@ export class LookUpService {
     this.initDataService.getInitData().subscribe(data => {
       this.sruUrl = data.urls;  // Retrieve SRU URL
       this.institutionCode = data.instCode;  // Retrieve Institution Code
-    });}
+    });
+    this.settingsService.get().subscribe(config => {
+        this.settings = config as Settings;
+      });
+    
+    }
 
     handleRequest(item: any): Observable<any[]> {
       return this.searchPrimoApi(item);  // No need to chain getCourseData separately, as it’s combined in searchPrimoApi
@@ -455,57 +465,57 @@ private getPreferredDate(date008: string): string | null {
 
 
   // Function to retrieve course data
-private getCourseData(row: any) {
-  let courseURL = ""
-  if ('Instructor Last Name - Input' in row){
-    //courseURL = `/courses?q=name~${row['Course Semester - Input']}-${row['Course Number - Input']}%20AND%20instructors~${row['Instructor Last Name - Input']}&format=json`;
-      courseURL = `/courses?q=name~${row['Course Semester - Input']}-${row['Course Number - Input']}%20AND%20instructors~${row['Instructor Last Name - Input']}&format=json`
-      }
-
-  else {
-    //courseURL = `/courses?q=name~${row['Course Semester - Input']}-${row['Course Number - Input']}&format=json`;
-    courseURL = `/courses?q=name~${row['Course Semester - Input']}-${row['Course Number - Input']}&format=json`
- 
-      }
   
-
-  return this.restService.call(courseURL).pipe(
-    concatMap((response: any) => {
-
- 
-        let courseArray = [];
-        // Assuming the API returns a list of courses with sections
-        if ('course' in response){
-        response.course.forEach(course => {
+private getCourseData(row: any): Observable<CourseResult[]> {
+    if (this.settings.manualCourseEntry) {
+      return of([{
+        course_name: row['Course Name - Input'] || '',
+        course_code: row['Course Code - Input'] || '',
+        course_section: '',
+        instructors: row['Instructor Last Name - Input'] || ''
+      }]);
+    }
   
-        let instructors = [];
-         course['instructor'].forEach(instructor => {
-          instructors.push(instructor['last_name'])
-         });
-         let instructorString = instructors.join(';')
-          courseArray.push({'course_name': course['name'], 'course_code': course['code'], 'course_section': course['section'], 'instructors': instructorString});
-         
-           
-        });
-
-      }
-
-      else{
-        courseArray = [{
-          'course_name': "no results for course search",
-          'course_code': "no results for course search",
-          'course_section': "no results for course search",
-          'instructors': "no results for course search" 
-        }];
-
-      }
-        return of(courseArray);
-      ;  // Return the array of courses with code and section
-    }),
-    catchError(error => {
+    const rawSemester = row['Course Semester - Input'];
+    const rawCourse = row['Course Number - Input'];
+    const rawYear = row['Course Year - Input'];
+  
+    const semesterCode = this.settings.semesterMappings?.[rawSemester] || rawSemester;
+  
+    const namePattern = this.settings.coursePattern || '{semester}-{course}-{year}';
+    const courseName = namePattern
+      .replace('{semester}', semesterCode)
+      .replace('{course}', rawCourse)
+      .replace('{year}', rawYear);
+  
+    let courseURL = `/courses?q=name~${encodeURIComponent(courseName)}`;
+    if ('Instructor Last Name - Input' in row) {
+      courseURL += `%20AND%20instructors~${encodeURIComponent(row['Instructor Last Name - Input'])}`;
+    }
+    courseURL += `&format=json`;
+  
+    return this.restService.call(courseURL).pipe(
+      map((response: any) => {
+        if (response.course?.length) {
+          return response.course.map(course => ({
+            course_name: course.name,
+            course_code: course.code,
+            course_section: course.section,
+            instructors: (course.instructor || []).map(i => i.last_name).join(';')
+          }));
+        } else {
+          return [{
+            course_name: "no results for course search",
+            course_code: "no results for course search",
+            course_section: "no results for course search",
+            instructors: "no results for course search"
+          }];
+        }
+      }),
+      catchError(error => {
         console.error('Course Data Error:', error);
         return throwError(error);
-    })
-);
-}
-}
+      })
+    );
+  }
+}  

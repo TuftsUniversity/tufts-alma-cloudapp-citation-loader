@@ -19,4 +19,23 @@ export class Configuration {
   
     departmentArgs: { done: boolean } = { done: false };
     circArgs: { place_on_hold_shelf: boolean } = { place_on_hold_shelf: false };
-  }
+
+      // ✅ Add these new properties
+  coursePattern: string = '{semester}-{course}-{year}';
+  useLegacyMapping: boolean = false;
+  manualCourseEntry: boolean = false;
+  semesterMappings: {
+    Spring: string;
+    Summer: string;
+    Fall: string;
+    Annual: string;
+  } = {
+    Spring: '',
+    Summer: '',
+    Fall: '',
+    Annual: ''
+  };
+}
+
+
+  

@@ -7,12 +7,15 @@ import { CloudAppEventsService, AlertService, CloudAppConfigService, EntityType,
 import { TranslateService } from '@ngx-translate/core';
 import { HttpClientModule, HttpClient } from '@angular/common/http';
 
+import { CloudAppSettingsService } from '@exlibris/exl-cloudapp-angular-lib';
+import { Settings } from '../models/settings.model'; // or wherever it's defined
+
 
 @Injectable({
   providedIn: 'root'
 })
 export class ItemService {
-
+  
   almaCourse: any;
   almaCourseId: any;
   readingLists: any;
@@ -33,13 +36,20 @@ export class ItemService {
   s = new Subject();
   items: any[];
 
+    private settings: Settings;
+
+
   constructor(
+    
     private restService: CloudAppRestService,
     private alert: AlertService,
     private translate: TranslateService,
-    private http: HttpClient
+    private http: HttpClient,
+    private settingsService: CloudAppSettingsService
 
-  ) { }
+  ) { this.settingsService.get().subscribe(config => {
+    this.settings = config as Settings;
+  });}
 
   // operate<In, Out>({ destination, ...subscriberOverrides }: OperateConfig<In, Out>) {
   //   return new Subscriber(destination, subscriberOverrides);
