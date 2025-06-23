@@ -7,9 +7,11 @@ import { LookupToolComponent } from './lookup-tool/lookup-tool.component';
 
 const routes: Routes = [
   { path: '', component: LookupToolComponent },
+  { path: "settings", component:SettingsComponent},
   { path : 'lookup-tool', component: LookupToolComponent},
   { path: 'main', component: MainComponent },
-  { path: "main/settings", component: SettingsComponent},
+
+
   { path: 'help', component: HelpComponent}
  
 ];
