@@ -22,8 +22,8 @@ export class Configuration {
 
       // ✅ Add these new properties
   coursePattern: string = '{semester}-{course}-{year}';
-  useLegacyMapping: boolean = false;
-  manualCourseEntry: boolean = false;
+  useLegacyMapping: boolean = true;
+  
   semesterMappings: {
     Spring: string;
     Summer: string;

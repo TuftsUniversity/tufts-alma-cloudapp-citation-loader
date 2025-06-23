@@ -11,6 +11,9 @@ import * as XLSX from 'xlsx'; // Import XLSX library
 import { forkJoin, of, from } from 'rxjs';
 import { Router } from '@angular/router';
 import { catchError, finalize, map, concatMap, tap } from 'rxjs/operators';
+import { Settings } from '../models/settings.model'; // or wherever it's defined
+ 
+import { Configuration } from "../models/configuration.model";
 
 @Component({
   selector: 'app-lookup-tool',
@@ -18,21 +21,46 @@ import { catchError, finalize, map, concatMap, tap } from 'rxjs/operators';
   styleUrls: ['./lookup-tool.component.scss']
 })
 export class LookupToolComponent implements OnInit {
+  private settings: Settings;
   courseData: any[] = [];
   progressBarValue: number = 0;
   files: File[] = [];
   arrayBuffer:any;
   loading: Boolean;
-  
+  loadingConfig: boolean = false;
+  config: Configuration;
   constructor(
+    
     private lookUpService: LookUpService,
+    private alert: AlertService,
     private restService: CloudAppRestService,
-    private eventsService: CloudAppEventsService
-  ) {}
+    private eventsService: CloudAppEventsService,
+    private settingsService: CloudAppSettingsService,
+  ) {this.settingsService.get().subscribe(config => {
+          this.settings = config as Settings;
+        });
+    }
 
-  ngOnInit(): void {
-    // Initialize component, if needed
-  }
+  
+    ngOnInit() {
+        this.loadingConfig = true;
+        this.settingsService.get().subscribe({
+          next: (res: Configuration) => {
+            if (res && Object.keys(res).length !== 0) {
+              this.config = res;
+              
+            }
+            this.loadingConfig = false;
+          },
+          error: (err: Error) => {
+            console.log(console.log(JSON.stringify(this.config)));
+            console.error(err.message);
+            this.loadingConfig = false;
+          },
+        });
+        
+      }
+  
 
   onSelect(event) {
     this.files.push(...event.addedFiles);
@@ -147,23 +175,34 @@ processRows(json: any[]): void {
     const courseSemester = row['Course Semester'] || '';
     const instructor = row['Instructor Last Name'] || '';
     let format = row['Format'] || row['format'] || '';
-
+    
+    let courseTermMapping = '';
+    let courseYearMapping = '';
+    
+    // Conditionally handle mapping fields
+    if (!this.config.useLegacyMapping) {
+      const requiredColumns = ["Course Term for Mapping", "Course Year for Mapping"];
+      const missing = requiredColumns.filter(col => !Object.keys(row).includes(col));
+    
+      if (missing.length > 0) {
+        this.alert.error(`Missing required column(s) for course mapping: ${missing.join(", ")}`);
+        return;
+      }
+    
+      courseTermMapping = row['Course Term for Mapping'] || '';
+      courseYearMapping = row['Course Year for Mapping'] || '';
+    }
+    
     // Remove original keys
-    delete row['Author First'];
-    delete row['Author Last'];
-    delete row['Contributor First'];
-    delete row['Contributor Last'];
-    delete row['Title'];
-    delete row['Publisher'];
-    delete row['Year'];
-    delete row['Course Number'];
-    delete row['Course Semester'];
-    delete row['Instructor Last Name'];
-    delete row['Format'];
-    delete row['format'];
-
+    [
+      'Author First', 'Author Last', 'Contributor First', 'Contributor Last',
+      'Title', 'Publisher', 'Year', 'Course Number', 'Course Semester',
+      'Instructor Last Name', 'Format', 'format',
+      'Course Term for Mapping', 'Course Year for Mapping'
+    ].forEach(key => delete row[key]);
+    
     // Create a new processed row
-    let c_row = {
+    let c_row: any = {
       'Author First - Input': authorFirst,
       'Author Last - Input': authorLast,
       'Contributor First - Input': contributorFirst,
@@ -176,6 +215,12 @@ processRows(json: any[]): void {
       'Instructor Last Name - Input': instructor,
       'Format - Input': format
     };
+    
+    if (!this.config.useLegacyMapping) {
+      c_row['Course Term for Mapping - Input'] = courseTermMapping;
+      c_row['Course Year for Mapping - Input'] = courseYearMapping;
+    }
+    
 
     // Add any extra columns
     for (const k in row) {

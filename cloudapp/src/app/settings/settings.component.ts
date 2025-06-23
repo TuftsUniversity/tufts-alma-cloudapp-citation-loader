@@ -62,7 +62,7 @@ export class SettingsComponent implements OnInit {
                 this.config = {
                   coursePattern: '{semester}-{course}-{year}',
                   useLegacyMapping: false,
-                  manualCourseEntry: false,
+                  
                   semesterMappings: {
                     Spring: '',
                     Summer: '',
@@ -92,6 +92,11 @@ export class SettingsComponent implements OnInit {
   }
 
   onSubmit(form: NgForm) {
+
+    if (!this.config.mustConfig?.pub_status) {
+        this.alert.error("Publication status is required.");
+        return;
+      }
     //this.config.mustConfig.isChecked = this.isChecked; // Ensure isChecked is updated in the config
     this.settingsService.set(this.config).subscribe({
       next: () => {

@@ -188,6 +188,7 @@ ngOnInit() {
 
                 let course_code:string;
                 let mms_id: string;
+              
               if ('course_code' in item){
 
                 course_code = item.course_code.replace(/[\{\}"']/g, "");
