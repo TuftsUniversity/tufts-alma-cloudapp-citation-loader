@@ -3,14 +3,27 @@
   
 </ng-template>
 
-<div>
-  
-  <a [routerLink]="['/settings']">To settings</a>
-</div>
+
 <div *ngIf="config; else error_msg">
-<div class="cloudapp-actions" align="end">
-  <button mat-flat-button type="button" color="primary" (click)="loadExecl()" [disabled]="files.length==0 || loading">{{ 'Main.LoadItems' | translate }}</button>
-</div>
+  <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px;">
+    <div>
+      <button mat-flat-button type="button" color="primary" [routerLink]="['/settings']">
+        Settings
+      </button>
+    </div>
+    <div>
+      <button mat-flat-button type="button" color="primary" (click)="loadExecl()" [disabled]="files.length==0 || loading">
+        {{ 'Main.LoadItems' | translate }}
+      </button>
+    </div>
+  </div>
+
+
+<ng-template #error_msg>
+  <h1>This app needs to be configured first</h1>
+</ng-template>
+
+
 <!--similar styling to other cloud apps-->
 <h1 >{{ 'Main.CitationLoader' | translate }}</h1>
 <div>
@@ -22,8 +35,11 @@
 </ngx-dropzone>
 </div>
 </div>
+
+<br />
 <div>
-  <a [routerLink]="['']">To Lookup Tool</a>
+    <button mat-flat-button type="button" color="primary" [routerLink]="['']">To Lookup Tool</button>
+
 </div>
 <div *ngIf="resultMessage">
   

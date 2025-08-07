@@ -1,22 +1,23 @@
 
 
 
-  <div class="cloudapp-actions" align="end">
-    
-    <button mat-flat-button type="button" color="primary" (click)="handleUpload()" [disabled]="files.length==0 || loading">{{ 'Main.SearchItems' | translate }}</button>
-  </div>
+<ng-container *ngIf="config; else error_msg">
+ <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px;">
+  <button mat-flat-button type="button" color="primary" [routerLink]="['/settings']">
+    Settings
+  </button>
 
-  <ng-template #error_msg>
-    <h1>This app needs to be configured first</h1>
-    
-  </ng-template>
+  <button mat-flat-button type="button" color="primary" (click)="handleUpload()" [disabled]="files.length==0 || loading">
+    {{ 'Main.SearchItems' | translate }}
+  </button>
+</div>
 
-  
-  
-  <div *ngIf="config; else error_msg">
-    
-    <a [routerLink]="['/settings']">To settings</a>
-  </div>
+</ng-container>
+
+<ng-template #error_msg>
+  <h1>This app needs to be configured first</h1>
+</ng-template>
+
    <!--similar styling to other cloud apps-->
    <h1 >{{ 'Main.LookupTool' | translate }}</h1>
   
@@ -37,8 +38,10 @@
     </ngx-dropzone-preview>
   </ngx-dropzone>
   </div>
+  <br/>
   <div>
-    <a [routerLink]="['main']">To Citation Loader</a>
+    <button mat-flat-button type="button" color="primary" [routerLink]="['/main']">Citation Loader</button>
+    <!--<a [routerLink]="['main']">To Citation Loader</a>-->
   </div>
  
   
