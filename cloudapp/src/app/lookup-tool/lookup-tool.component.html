@@ -1,50 +1,104 @@
-
-
-
-<ng-container *ngIf="config; else error_msg">
- <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px;">
+<div style="display: flex; justify-content: space-between; align-items: center; gap: 8px;">
   <button mat-flat-button type="button" color="primary" [routerLink]="['/settings']">
     Settings
   </button>
 
-  <button mat-flat-button type="button" color="primary" (click)="handleUpload()" [disabled]="files.length==0 || loading">
+  <button
+    *ngIf="inputMode === 'spreadsheet'"
+    mat-flat-button
+    type="button"
+    color="primary"
+    (click)="handleUpload()"
+    [disabled]="files.length === 0 || loading">
     {{ 'Main.SearchItems' | translate }}
   </button>
 </div>
 
-</ng-container>
+<h1>{{ 'Main.LookupTool' | translate }}</h1>
 
-<ng-template #error_msg>
-  <h1>This app needs to be configured first</h1>
-</ng-template>
-
-   <!--similar styling to other cloud apps-->
-   <h1 >{{ 'Main.LookupTool' | translate }}</h1>
-  
- <div>
+<div>
   <a href="./assets/example input.xlsx">Download lookup tool input template</a>
- </div>
- <br />
-  <div>
+</div>
 
-    
-  
-      
-    
-  <ngx-dropzone (change)="onSelect($event)" accept="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel" [multiple]=false>
-    <ngx-dropzone-label translate>Main.DragFile</ngx-dropzone-label>
-    <ngx-dropzone-preview *ngFor="let f of files" [removable]="true" (removed)="onRemove(f)">
-      <ngx-dropzone-label>{{ f.name }}</ngx-dropzone-label>
-    </ngx-dropzone-preview>
-  </ngx-dropzone>
+<br />
+
+<div>
+  <mat-card>
+    <mat-card-title>Input Mode</mat-card-title>
+
+    <mat-radio-group [(ngModel)]="inputMode">
+      <mat-radio-button value="spreadsheet">Spreadsheet upload</mat-radio-button>
+      <mat-radio-button value="paste">Paste citations</mat-radio-button>
+    </mat-radio-group>
+  </mat-card>
+
+  <div *ngIf="inputMode === 'paste'" class="paste-mode">
+    <mat-form-field appearance="fill" class="full-width">
+      <mat-label>Course Name</mat-label>
+      <input matInput [(ngModel)]="pasteForm.courseName" />
+    </mat-form-field>
+
+    <mat-form-field appearance="fill" class="full-width">
+      <mat-label>Instructor Last Name</mat-label>
+      <input matInput [(ngModel)]="pasteForm.instructorLastName" />
+    </mat-form-field>
+
+    <mat-form-field appearance="fill" class="full-width">
+      <mat-label>Course Number</mat-label>
+      <input matInput [(ngModel)]="pasteForm.courseNumber" />
+    </mat-form-field>
+
+    <mat-form-field appearance="fill" class="full-width">
+      <mat-label>Course Semester</mat-label>
+      <input matInput [(ngModel)]="pasteForm.courseSemester" />
+    </mat-form-field>
+
+    <mat-form-field *ngIf="config && !config.useLegacyMapping" appearance="fill" class="full-width">
+      <mat-label>Course Term for Mapping</mat-label>
+      <input matInput [(ngModel)]="pasteForm.courseTermForMapping" />
+    </mat-form-field>
+
+    <mat-form-field *ngIf="config && !config.useLegacyMapping" appearance="fill" class="full-width">
+      <mat-label>Course Year for Mapping</mat-label>
+      <input matInput [(ngModel)]="pasteForm.courseYearForMapping" />
+    </mat-form-field>
+
+    <mat-form-field appearance="fill" class="full-width">
+      <mat-label>Citations</mat-label>
+      <textarea
+        matInput
+        rows="14"
+        placeholder="Paste one citation per line or separate citations by blank lines"
+        [(ngModel)]="pasteForm.citationsText">
+      </textarea>
+    </mat-form-field>
+
+    <button mat-flat-button color="primary" (click)="handlePastedCitations()">
+      Parse citations and run lookup
+    </button>
   </div>
-  <br/>
-  <div>
-    <button mat-flat-button type="button" color="primary" [routerLink]="['/main']">Citation Loader</button>
-    <!--<a [routerLink]="['main']">To Citation Loader</a>-->
+
+  <div *ngIf="inputMode === 'spreadsheet'">
+    <ngx-dropzone
+      (change)="onSelect($event)"
+      accept="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel"
+      [multiple]="false">
+      <ngx-dropzone-label translate>Main.DragFile</ngx-dropzone-label>
+      <ngx-dropzone-preview *ngFor="let f of files" [removable]="true" (removed)="onRemove(f)">
+        <ngx-dropzone-label>{{ f.name }}</ngx-dropzone-label>
+      </ngx-dropzone-preview>
+    </ngx-dropzone>
   </div>
- 
-  
-  <div class="loading-shade" *ngIf="loading">
-    <mat-spinner diameter="50"></mat-spinner>
-  </div>
+</div>
+
+<br />
+
+<div>
+  <button mat-flat-button type="button" color="primary" [routerLink]="['/main']">
+    Citation Loader
+  </button>
+</div>
+
+<div class="loading-shade" *ngIf="loading">
+  <mat-spinner diameter="50"></mat-spinner>
+</div>

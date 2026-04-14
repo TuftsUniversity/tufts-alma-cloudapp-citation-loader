@@ -1,196 +1,206 @@
 <ng-template #loading_spinner>
-    <div class="loading-shade">
-      <mat-progress-spinner
-        mode="indeterminate"
-        diameter="50"
-      ></mat-progress-spinner>
+  <div class="loading-shade">
+    <mat-progress-spinner
+      mode="indeterminate"
+      diameter="50">
+    </mat-progress-spinner>
+  </div>
+</ng-template>
+
+<section>
+  <form
+    (ngSubmit)="onSubmit(form)"
+    #form="ngForm"
+    *ngIf="!loading && config; else loading_spinner">
+
+    <div class="eca-actions">
+      <a [routerLink]="['/main']" style="float: right">
+        <button mat-flat-button color="secondary" type="button">
+          <mat-icon>arrow_back</mat-icon>Back
+        </button>
+      </a>
+
+      <button
+        mat-flat-button
+        color="secondary"
+        type="button"
+        (click)="onRestore()"
+        style="margin-left: 4px">
+        Restore Defaults
+      </button>
+
+      <button
+        mat-flat-button
+        color="primary"
+        type="submit">
+        Save
+      </button>
     </div>
-  </ng-template>
-  <section>
-    <form
-      (ngSubmit)="onSubmit(form)"
-      #form="ngForm"
-      *ngIf="!loading && config; else loading_spinner">
-      <div class="eca-actions">
-        <a [routerLink]="['/main']" style="float: right">
-          <button mat-flat-button color="secondary">
-            <mat-icon>arrow_back</mat-icon>Back
-          </button>
-        </a>
-        <button
-          mat-flat-button
-          color="secondary"
-          type="button"
-          (click)="onRestore()"
-          style="margin-left: 4px">
-          Restore Defaults
-        </button>
-        <button
-          mat-flat-button
-          color="primary"
-          type="submit"
-          [disabled]="!form.valid">
-          Save
-        </button>
-      </div>
-  
-      <h1>Settings</h1>
-      <mat-checkbox type="checkbox" name="moveRequested" [(ngModel)]="config.moveRequested" (change)="onChangeMoveCheckbox()">
-        Move physical items?
-      </mat-checkbox>
-      <div *ngIf="config.moveRequested == true"><p>Please choose a location</p>
+
+    <h1>Settings</h1>
+
+    <mat-checkbox
+      type="checkbox"
+      name="moveRequested"
+      [(ngModel)]="config.moveRequested">
+      Move physical items?
+    </mat-checkbox>
+
+    <div *ngIf="config.moveRequested === true">
+      <p>Please choose a location</p>
+
       <mat-form-field>
         <mat-label>Library</mat-label>
         <mat-select
           ngModel
           name="library"
-    
           #library="ngModel"
           [(ngModel)]="config.mustConfig.library"
           (selectionChange)="onLibraryChange($event.value)">
-          <mat-option *ngFor="let lib of libraries" [value]="lib.code">{{
-            lib.name
-          }}</mat-option>
+          <mat-option *ngFor="let lib of libraries" [value]="lib.code">
+            {{ lib.name }}
+          </mat-option>
         </mat-select>
       </mat-form-field>
-      <span *ngIf="!library.valid && library.touched"><p>Please choose a location</p></span>
+
+      <span *ngIf="!library.valid && library.touched">
+        <p>Please choose a location</p>
+      </span>
+
       <div class="from" ngModelGroup="from" appFromvalidator #from="ngModelGroup">
         <mat-form-field>
           <mat-label>Location</mat-label>
           <mat-select
-           
             ngModel
             name="location"
             [(ngModel)]="config.from.locations"
             #location
-            (selectionChange)="onLocationChange(config.mustConfig.location)">
-          <mat-option *ngFor="let location of locations" [value]="location.code">{{
-            location.name
-          }}</mat-option>
-        </mat-select>
+            (selectionChange)="onLocationChange(config.from.locations)">
+            <mat-option *ngFor="let location of locations" [value]="location.code">
+              {{ location.name }}
+            </mat-option>
+          </mat-select>
         </mat-form-field>
-
-        </div>
-        </div>
-        <div>
-          <mat-form-field>
-            <mat-label>Reading List visibility, if list needs to be created</mat-label>
-            <mat-select
-             
-              ngModel
-              name="visibility" 
-              #visibility="ngModel" 
-              [(ngModel)]="config.mustConfig.visibility" 
-              (selectionChange)="onPubStatusChange($event.value)">
-              <mat-option value="PUBLIC">All Students Restricted</mat-option>
-              <mat-option value="RESTRICTED">Course Students</mat-option>
-              <mat-option value="OPEN_TO_WORLD">Anyone Restricted</mat-option>
-              <mat-option value="REGISTERED">All Students Full</mat-option>
-              <mat-option value="FULL">Anyone Full</mat-option>
-              <mat-option value="PARTIAL">Anyone Restricted, All Students Full</mat-option>
-              <mat-option value="DRAFT">Draft</mat-option>
-              <mat-option value="ARCHIVED">Archived</mat-option>
-              <mat-option value="ARCHIVED">Archived</mat-option>
-            
-             <mat-option value="DELETED">	Deleted</mat-option>
-          </mat-select>
-          </mat-form-field>
-        </div>
-        <div>
-          <mat-form-field>
-            <mat-label>Reading List publication status, if list needs to be created</mat-label>
-            <mat-select
-             
-              ngModel
-              name="pub_status" 
-              #pub_status="ngModel" 
-              [(ngModel)]="config.mustConfig.pub_status" 
-              (selectionChange)="onPubStatusChange($event.value)">
-              <mat-option value="ARCHIVED">Archived</mat-option>
-              <mat-option value="DRAFT">Draft</mat-option>
-              <mat-option value="PUBLISHED">Published</mat-option>
-
-          </mat-select>
-          </mat-form-field>
-        </div>
-        <div>
-        <mat-checkbox type="checkbox" name="isChecked"     [(ngModel)]="config.isChecked"     (change)="onChangeCheckbox()">
-          Complete physical item citations?
-        </mat-checkbox>
-        
       </div>
-      <br />
-      <h1>Course Settings</h1>
-      <div>
-        <mat-checkbox type="checkbox" name="useLegacyMapping"     [(ngModel)]="config.useLegacyMapping"     (change)="onChangeCheckbox()">
-          Use default < 2025 course search format
-        </mat-checkbox>
-        
-      </div>
-      <h5>Course Name Format</h5>
-      <mat-form-field appearance="fill" class="w-100">
-        <mat-label>Course Name Format</mat-label>
-        <input matInput
-               name="coursePattern"
-               [(ngModel)]="config.coursePattern"
-               placeholder="e.g. {semester}*{course}*{year}"
-               [disabled]="config.useLegacyMapping" />
-        <mat-hint align="start">
-          Use e.g.: <code>{{ '{' }}semester{{ '}' }}</code>* 
-               <code>{{ '{' }}course{{ '}' }}</code>*
-               <code>{{ '{' }}year{{ '}' }}</code>
-        </mat-hint>
-      </mat-form-field>
-      
-      
-   
-      
-      <h5 class="mt-4">Semester Mappings</h5>
-      <p class="text-muted">Define how each semester appears in course names.</p>
-      
-      <mat-form-field appearance="fill" class="w-100 mb-3">
-        <mat-label>Spring</mat-label>
-        <input matInput
-               name="springMapping"
-               [(ngModel)]="config.semesterMappings['Spring']"
-               placeholder='e.g. "Sp" or "02" or other'
-               [disabled]="config.useLegacyMapping" />
-      </mat-form-field>
-      
-      <mat-form-field appearance="fill" class="w-100 mb-3">
-        <mat-label>Summer</mat-label>
-        <input matInput
-               name="summerMapping"
-               [(ngModel)]="config.semesterMappings['Summer']"
-               placeholder='e.g. "Su" or "05" or other'
-               [disabled]="config.useLegacyMapping" />
-      </mat-form-field>
-      
-      <mat-form-field appearance="fill" class="w-100 mb-3">
-        <mat-label>Fall</mat-label>
-        <input matInput
-               name="fallMapping"
-               [(ngModel)]="config.semesterMappings['Fall']"
-               placeholder='e.g. "Fa" or "08" or other'
-               [disabled]="config.useLegacyMapping" />
-      </mat-form-field>
-      
-      <mat-form-field appearance="fill" class="w-100 mb-3">
-        <mat-label>Annual</mat-label>
-        <input matInput
-               name="annualMapping"
-               [(ngModel)]="config.semesterMappings['Annual']"
-               placeholder='e.g. "An" or "04" or other'
-               [disabled]="config.useLegacyMapping" />
-      </mat-form-field>
-      
+    </div>
 
-    </form>
-  </section>
-      <!-- <button mat-stroked-button color="primary" type="submit" [disabled]="!form.valid">
-        Save
-      </button>
-      <button mat-stroked-button color="primary" type="button" (click)="onRestore()" style="margin-left: 4px;">
-        Restore Defaults
-      </button> -->
-    
+    <div>
+      <mat-form-field>
+        <mat-label>Reading List visibility, if list needs to be created</mat-label>
+        <mat-select
+          ngModel
+          name="visibility"
+          #visibility="ngModel"
+          [(ngModel)]="config.mustConfig.visibility">
+          <mat-option value="PUBLIC">All Students Restricted</mat-option>
+          <mat-option value="RESTRICTED">Course Students</mat-option>
+          <mat-option value="OPEN_TO_WORLD">Anyone Restricted</mat-option>
+          <mat-option value="REGISTERED">All Students Full</mat-option>
+          <mat-option value="FULL">Anyone Full</mat-option>
+          <mat-option value="PARTIAL">Anyone Restricted, All Students Full</mat-option>
+          <mat-option value="DRAFT">Draft</mat-option>
+          <mat-option value="ARCHIVED">Archived</mat-option>
+          <mat-option value="DELETED">Deleted</mat-option>
+        </mat-select>
+      </mat-form-field>
+    </div>
+
+    <div>
+      <mat-form-field>
+        <mat-label>Reading List publication status, if list needs to be created</mat-label>
+        <mat-select
+          ngModel
+          name="pub_status"
+          #pub_status="ngModel"
+          [(ngModel)]="config.mustConfig.pub_status"
+          (selectionChange)="onPubStatusChange($event.value)">
+          <mat-option value="ARCHIVED">Archived</mat-option>
+          <mat-option value="DRAFT">Draft</mat-option>
+          <mat-option value="PUBLISHED">Published</mat-option>
+        </mat-select>
+      </mat-form-field>
+    </div>
+
+    <div>
+      <mat-checkbox
+        type="checkbox"
+        name="isChecked"
+        [(ngModel)]="config.isChecked">
+        Complete physical item citations?
+      </mat-checkbox>
+    </div>
+
+    <br />
+
+    <h1>Course Settings</h1>
+
+    <div>
+      <mat-checkbox
+        type="checkbox"
+        name="useLegacyMapping"
+        [(ngModel)]="config.useLegacyMapping">
+        Use default &lt; 2025 course search format
+      </mat-checkbox>
+    </div>
+
+    <h5>Course Name Format</h5>
+    <mat-form-field appearance="fill" class="w-100">
+      <mat-label>Course Name Format</mat-label>
+      <input
+        matInput
+        name="coursePattern"
+        [(ngModel)]="config.coursePattern"
+        placeholder="e.g. {semester}-{course}-{year}"
+        [disabled]="config.useLegacyMapping" />
+      <mat-hint align="start">
+        Use e.g.:
+        <code>{{ '{' }}semester{{ '}' }}</code>-
+        <code>{{ '{' }}course{{ '}' }}</code>-
+        <code>{{ '{' }}year{{ '}' }}</code>
+      </mat-hint>
+    </mat-form-field>
+
+    <h5 class="mt-4">Semester Mappings</h5>
+    <p class="text-muted">Define how each semester appears in course names.</p>
+
+    <mat-form-field appearance="fill" class="w-100 mb-3">
+      <mat-label>Spring</mat-label>
+      <input
+        matInput
+        name="springMapping"
+        [(ngModel)]="config.semesterMappings['Spring']"
+        placeholder='e.g. "Sp" or "02"'
+        [disabled]="config.useLegacyMapping" />
+    </mat-form-field>
+
+    <mat-form-field appearance="fill" class="w-100 mb-3">
+      <mat-label>Summer</mat-label>
+      <input
+        matInput
+        name="summerMapping"
+        [(ngModel)]="config.semesterMappings['Summer']"
+        placeholder='e.g. "Su" or "05"'
+        [disabled]="config.useLegacyMapping" />
+    </mat-form-field>
+
+    <mat-form-field appearance="fill" class="w-100 mb-3">
+      <mat-label>Fall</mat-label>
+      <input
+        matInput
+        name="fallMapping"
+        [(ngModel)]="config.semesterMappings['Fall']"
+        placeholder='e.g. "Fa" or "08"'
+        [disabled]="config.useLegacyMapping" />
+    </mat-form-field>
+
+    <mat-form-field appearance="fill" class="w-100 mb-3">
+      <mat-label>Annual</mat-label>
+      <input
+        matInput
+        name="annualMapping"
+        [(ngModel)]="config.semesterMappings['Annual']"
+        placeholder='e.g. "An" or "04"'
+        [disabled]="config.useLegacyMapping" />
+    </mat-form-field>
+  </form>
+</section>

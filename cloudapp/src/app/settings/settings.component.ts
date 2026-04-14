@@ -1,39 +1,36 @@
-import { Library } from "./../models/library.model";
-import { Location } from "./../models/location.model";
-import { Configuration} from "./../models/configuration.model"
-import { Component, OnInit } from "@angular/core";
-import { NgForm } from "@angular/forms";
+import { Library } from './../models/library.model';
+import { Location } from './../models/location.model';
+import { Configuration } from './../models/configuration.model';
+import { Component, OnInit } from '@angular/core';
+import { NgForm } from '@angular/forms';
 import {
   AlertService,
   CloudAppRestService,
   CloudAppSettingsService,
   RestErrorResponse,
-} from "@exlibris/exl-cloudapp-angular-lib";
-import { forkJoin, of } from "rxjs";
-import { Router } from "@angular/router";
-import { catchError, finalize, map } from "rxjs/operators";
-
-
+} from '@exlibris/exl-cloudapp-angular-lib';
+import { forkJoin, of } from 'rxjs';
+import { Router } from '@angular/router';
+import { catchError, finalize } from 'rxjs/operators';
 
 @Component({
-  selector: "app-settings",
-  templateUrl: "./settings.component.html",
-  styleUrls: ["./settings.component.scss"],
+  selector: 'app-settings',
+  templateUrl: './settings.component.html',
+  styleUrls: ['./settings.component.scss'],
 })
-
 export class SettingsComponent implements OnInit {
-    
   config: Configuration = new Configuration();
   libraries: Library[] = [];
-  isChecked: boolean;
-  moveRequested: boolean;
   locations: Location[] = [];
-  citation_complete: boolean = false;
-  pub_status: string = "";
-  visibility: string = "";
-  
-  loading: boolean = false;
-  work_order_types :string[] =[];
+
+  isChecked = false;
+  moveRequested = true;
+  citation_complete = false;
+  pub_status = '';
+  visibility = '';
+
+  loading = false;
+  work_order_types: string[] = [];
 
   constructor(
     private settingsService: CloudAppSettingsService,
@@ -44,43 +41,40 @@ export class SettingsComponent implements OnInit {
 
   ngOnInit(): void {
     this.loading = true;
-    let rest = this.restService.call("/conf/libraries/");
-    let config = this.settingsService.get();
-    
+
+    const rest = this.restService.call('/conf/libraries/');
+    const config = this.settingsService.get();
+
     forkJoin({ rest, config }).subscribe({
       next: (value) => {
-        this.config = Object.assign(new Configuration(), value.config);
-       // console.log(value);
-        this.libraries = value.rest.library as Library[];
-        let emptyLib: Library = { link:"", code:"INST_LEVEL", path:"", name:"Institution Level", description:"",
-                      resource_sharing:null, campus: null, proxy:"", default_location:null};
+        this.config = Object.assign(new Configuration(), value.config || {});
+
+        this.libraries = (value.rest.library || []) as Library[];
+
+        const emptyLib: Library = {
+          link: '',
+          code: 'INST_LEVEL',
+          path: '',
+          name: 'Institution Level',
+          description: '',
+          resource_sharing: null,
+          campus: null,
+          proxy: '',
+          default_location: null
+        };
+
         this.libraries.unshift(emptyLib);
-        this.locations = value.rest.locations as Location[];
-  
-        if (value.config && Object.keys(value.config).length !== 0) {
-            if (value.config) {
-                this.config = {
-                  coursePattern: '{semester}-{course}-{year}',
-                  useLegacyMapping: false,
-                  
-                  semesterMappings: {
-                    Spring: '',
-                    Summer: '',
-                    Fall: '',
-                    Annual: ''
-                  },
-                  ...value.config
-                };
-          
-          this.isChecked = this.config.isChecked; 
-          this.moveRequested = this.config.moveRequested; 
-          this.pub_status = this.config.mustConfig.pub_status;
-          this.visibility = this.config.mustConfig.visibility;
-          //console.log(JSON.stringify(this.config));
-          this.onLibraryChange(value.config.mustConfig.library, true);
+
+        this.isChecked = this.config.isChecked;
+        this.moveRequested = this.config.moveRequested;
+        this.pub_status = this.config.mustConfig.pub_status;
+        this.visibility = this.config.mustConfig.visibility;
+
+        if (this.config.mustConfig.library) {
+          this.onLibraryChange(this.config.mustConfig.library, true);
         }
-      }},
-      error: (err) => {
+      },
+      error: (err: Error) => {
         console.error(err.message);
         this.alert.error(err.message);
         this.loading = false;
@@ -91,148 +85,113 @@ export class SettingsComponent implements OnInit {
     });
   }
 
-  onSubmit(form: NgForm) {
-
-    if (!this.config.mustConfig?.pub_status) {
-        this.alert.error("Publication status is required.");
+  onSubmit(_form: NgForm): void {
+    if (this.config.moveRequested) {
+      if (!this.config.mustConfig?.library) {
+        this.alert.error('Library is required when moving physical items.');
         return;
       }
-    //this.config.mustConfig.isChecked = this.isChecked; // Ensure isChecked is updated in the config
+
+      if (!this.config.from?.locations) {
+        this.alert.error('Location is required when moving physical items.');
+        return;
+      }
+    }
+
+    if (!this.config.mustConfig?.visibility) {
+      this.alert.error('Reading list visibility is required.');
+      return;
+    }
+
+    if (!this.config.mustConfig?.pub_status) {
+      this.alert.error('Publication status is required.');
+      return;
+    }
+
     this.settingsService.set(this.config).subscribe({
       next: () => {
-        this.alert.success("Updated Successfully", { keepAfterRouteChange: true });
-        this.router.navigate([""]);
-        //console.log(JSON.stringify(this.config))
+        this.alert.success('Updated Successfully', { keepAfterRouteChange: true });
+        this.router.navigate(['']);
       },
       error: (err: RestErrorResponse) => {
         console.error(err.message);
         this.alert.error(err.message);
       },
     });
-    
   }
-  onRestore() {
+
+  onRestore(): void {
     this.config = new Configuration();
+    this.isChecked = this.config.isChecked;
+    this.moveRequested = this.config.moveRequested;
+    this.pub_status = this.config.mustConfig.pub_status;
+    this.visibility = this.config.mustConfig.visibility;
+    this.locations = [];
   }
-  onLibraryChange(circ_code: string, init=false){
+
+  onLibraryChange(circCode: string, init = false): void {
     this.loading = true;
 
-    let code = circ_code == "INST_LEVEL" ? "" : circ_code;
-    let rests = [this.getLocationData(code)];
- 
+    const code = circCode === 'INST_LEVEL' ? '' : circCode;
+    const rests = [this.getLocationData(code)];
 
     forkJoin(rests)
-    .pipe(finalize(
-      () => {
-        this.loading = false;
-        if (!init) {
-          this.config.from.locations = "";
-        }else{
-          this.onLocationChange(this.config.from.locations);
-        }
-      }))
-        .subscribe({
-        next: (res ) => {
-          if(res[0] != null){
-            this.locations = res[0].location;
-            this.locations.unshift({name : ' ',code:'',type:{value : ' '} });
+      .pipe(
+        finalize(() => {
+          this.loading = false;
+          if (!init) {
+            this.config.from.locations = '';
+          } else if (this.config.from.locations) {
+            this.onLocationChange(this.config.from.locations);
           }
-         
-          
+        })
+      )
+      .subscribe({
+        next: (res) => {
+          if (res[0] != null) {
+            this.locations = res[0].location || [];
+            this.locations.unshift({ name: ' ', code: '', type: { value: ' ' } });
+          }
         },
         error: (err: RestErrorResponse) => {
           this.locations = [];
-          
           console.error(err.message);
         }
       });
-      
   }
 
-
-  getLocationData(code) {
-    return this.restService.call("/conf/libraries/" +code+ "/locations").pipe(
+  getLocationData(code: string) {
+    return this.restService.call('/conf/libraries/' + code + '/locations').pipe(
       catchError((error) => {
-        // Handle errors from the department API
         this.locations = [];
         console.error(error.message);
-        // Return a placeholder value or an empty observable to continue with the other API
         return of(null);
       })
     );
   }
 
-  
-  onLocationChange(location: string){
-    
-  //  if(location != undefined && location != ''){
-      const library = this.config.mustConfig.library == "INST_LEVEL" ?  "" : this.config.mustConfig.library;
-      this.restService.call("/conf/libraries/" + library + "/locations" ).pipe(finalize(
-        () => {
+  onLocationChange(_location: string): void {
+    const library = this.config.mustConfig.library === 'INST_LEVEL' ? '' : this.config.mustConfig.library;
+
+    this.loading = true;
+    this.restService.call('/conf/libraries/' + library + '/locations')
+      .pipe(
+        finalize(() => {
           this.loading = false;
-        })).subscribe({
-          next: (res) => {
-            res.location.forEach(location => this.locations.push(location));
-            
-          },
-          error: (err: RestErrorResponse) => {
-            console.error(err.message);
-          }
-        });
-    // }else if(location != undefined){
-    //   this.onLocationChange(location);
-    // }
+        })
+      )
+      .subscribe({
+        next: (res: any) => {
+          this.locations = (res.location || []).slice();
+          this.locations.unshift({ name: ' ', code: '', type: { value: ' ' } });
+        },
+        error: (err: RestErrorResponse) => {
+          console.error(err.message);
+        }
+      });
   }
 
-  onChangeCheckbox() {
-    this.isChecked = !this.isChecked; // Toggle the checkbox state
-
-    //console.log(this.isChecked)
-    // No need to call set here if it will be handled by the form submit
+  onPubStatusChange(pubStatus: string): void {
+    this.pub_status = pubStatus;
   }
-
-  onChangeMoveCheckbox() {
-    this.moveRequested = !this.moveRequested; // Toggle the checkbox state
-
-    //console.log(this.isChecked)
-    // No need to call set here if it will be handled by the form submit
-  }
-
-  onPubStatusChange(pub_status: string){
-
-    this.pub_status = pub_status;
-  }
-
-//   onDepartmentChange(department_code: string){
-//     this.departments.forEach(d => {
-//       if(d.code == department_code){
-//         this.work_order_types = [d.type.value];
-//         this.onWorkOrderTypeChange(d.type.value);
-//         return;
-//       }
-//     });
-//   }
-
-//   onWorkOrderTypeChange(work_order_type: string){
-//     if(work_order_type ==' '){
-//       this.statuses = [{column2 : ' ',column1 : ' ',column0:''}];
-//       return;
-//     }
-//     const library = this.config.mustConfig.library == "INST_LEVEL" ?  "" : this.config.mustConfig.library;
-//     this.loading = true;
-//     this.restService.call("/conf/mapping-tables/WorkOrderTypeStatuses?scope="+library).pipe(finalize(
-//       () => {
-//         this.loading = false;
-//       })).subscribe({
-//         next: (res) => {
-//           this.statuses = res.row.filter(row => row.column0 ==work_order_type );
-//           this.statuses.unshift({column2 : ' ',column1 : ' ',column0:''});
-//         },
-//         error: (err: RestErrorResponse) => {
-//           this.statuses = [];
-//           console.error(err.message);
-//         }
-//       }); 
-//   }
-
 }
