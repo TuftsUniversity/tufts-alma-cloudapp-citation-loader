@@ -41,6 +41,7 @@ export class LookupToolComponent implements OnInit {
     instructorLastName: '',
     courseNumber: '',
     courseSemester: '',
+    courseYear: '',
     courseTermForMapping: '',
     courseYearForMapping: '',
     citationsText: ''
@@ -96,9 +97,10 @@ export class LookupToolComponent implements OnInit {
         instructor: this.pasteForm.instructorLastName,
         courseNumber: this.pasteForm.courseNumber,
         courseSemester: this.pasteForm.courseSemester,
+        courseYear: this.pasteForm.courseYear,
         courseTermForMapping: this.pasteForm.courseTermForMapping,
         courseYearForMapping: this.pasteForm.courseYearForMapping
-      }
+      } as any
     );
 
     if (!this.parsedCitations.length) {
@@ -184,6 +186,7 @@ export class LookupToolComponent implements OnInit {
       'Year': citation.year || '',
       'Course Number': citation.courseNumber || '',
       'Course Semester': citation.courseSemester || '',
+      'Course Year': (citation as any).courseYear || '',
       'Instructor Last Name': citation.instructor || '',
       'Format': '',
       'Citation Type': citation.type || '',
@@ -270,6 +273,7 @@ export class LookupToolComponent implements OnInit {
     const year = row['Year'] || '';
     const courseNumber = row['Course Number'] || '';
     const courseSemester = row['Course Semester'] || '';
+    const courseYear = row['Course Year'] || '';
     const instructor = row['Instructor Last Name'] || '';
     const format = row['Format'] || row['format'] || '';
 
@@ -299,6 +303,7 @@ export class LookupToolComponent implements OnInit {
       'Year',
       'Course Number',
       'Course Semester',
+      'Course Year',
       'Instructor Last Name',
       'Format',
       'format',
@@ -316,6 +321,7 @@ export class LookupToolComponent implements OnInit {
       'Year - Input': year,
       'Course Number - Input': courseNumber,
       'Course Semester - Input': courseSemester,
+      'Course Year - Input': courseYear,
       'Instructor Last Name - Input': instructor,
       'Format - Input': format
     };
@@ -384,7 +390,7 @@ export class LookupToolComponent implements OnInit {
         if (result['Description']) description = JSON.stringify(result['Description']);
         if (result['Returned Format']) format = result['Returned Format'];
 
-        const row: LookupRow = {
+        const outputRow: LookupRow = {
           'Title': title,
           'Author': author,
           'Publisher': publisher,
@@ -409,14 +415,14 @@ export class LookupToolComponent implements OnInit {
 
         const newValues: LookupRow = {};
         for (const k in result) {
-          if (!Object.prototype.hasOwnProperty.call(row, k) &&
+          if (!Object.prototype.hasOwnProperty.call(outputRow, k) &&
               k !== 'Description' &&
               Object.prototype.hasOwnProperty.call(result, k)) {
             newValues[k] = result[k];
           }
         }
 
-        data.push(Object.assign(newValues, row));
+        data.push(Object.assign(newValues, outputRow));
       });
     } else if (this.courseData.length === 1) {
       const result = this.courseData[0];
@@ -457,7 +463,7 @@ export class LookupToolComponent implements OnInit {
       if (result['Description']) description = JSON.stringify(result['Description']);
       if (result['Returned Format']) format = result['Returned Format'];
 
-      const row: LookupRow = {
+      const outputRow: LookupRow = {
         'Title': title,
         'Author': author,
         'Publisher': publisher,
@@ -482,14 +488,14 @@ export class LookupToolComponent implements OnInit {
 
       const newValues: LookupRow = {};
       for (const k in result) {
-        if (!Object.prototype.hasOwnProperty.call(row, k) &&
+        if (!Object.prototype.hasOwnProperty.call(outputRow, k) &&
             k !== 'Description' &&
             Object.prototype.hasOwnProperty.call(result, k)) {
           newValues[k] = result[k];
         }
       }
 
-      data.push(Object.assign(newValues, row));
+      data.push(Object.assign(newValues, outputRow));
     }
 
     this.loading = false;

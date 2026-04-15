@@ -373,17 +373,17 @@ export class LookUpService {
     const termForMapping = row['Course Term for Mapping - Input'] || '';
     const yearForMapping = row['Course Year for Mapping - Input'] || '';
     const course = row['Course Number - Input'] || '';
+    const courseSemester = row['Course Semester - Input'] || '';
+    const courseYear = row['Course Year - Input'] || '';
+    const instructor = row['Instructor Last Name - Input'] || '';
 
-    const courseTerm = useLegacyMapping
-      ? (row['Course Semester - Input'] || '')
-      : termForMapping;
-
-    const courseYear = useLegacyMapping
-      ? (row['Course Year - Input'] || '')
-      : yearForMapping;
+    console.log('getCourseData invoked with row:', JSON.stringify(row));
+    console.log('effectiveSettings:', JSON.stringify(effectiveSettings));
+    console.log('useLegacyMapping:', useLegacyMapping);
 
     if (!useLegacyMapping) {
       if (!termForMapping || !yearForMapping) {
+        console.warn('Missing term/year mapping fields for non-legacy course search.');
         return of([{
           course_name: 'error: missing term/year',
           course_code: '',
@@ -393,21 +393,23 @@ export class LookUpService {
       }
 
       const semesterCode =
-        effectiveSettings.semesterMappings?.[courseTerm as keyof typeof effectiveSettings.semesterMappings] ||
-        courseTerm;
+        effectiveSettings.semesterMappings?.[termForMapping as keyof typeof effectiveSettings.semesterMappings] ||
+        termForMapping;
 
       const namePattern = effectiveSettings.coursePattern || '{semester}-{course}-{year}';
 
       const courseName = namePattern
         .replace('{semester}', semesterCode || '')
         .replace('{course}', course || '')
-        .replace('{year}', courseYear || '');
+        .replace('{year}', yearForMapping || '');
 
       let courseURL = `/courses?q=name~${encodeURIComponent(courseName)}`;
 
-      if ('Instructor Last Name - Input' in row && row['Instructor Last Name - Input']) {
-        courseURL += `%20AND%20instructors~${encodeURIComponent(row['Instructor Last Name - Input'])}`;
+      if (instructor) {
+        courseURL += `%20AND%20instructors~${encodeURIComponent(instructor)}`;
       }
+
+      console.log('Constructed course search URL (non-legacy):', courseURL);
 
       return this.restService.call(courseURL).pipe(
         concatMap((response: any) => {
@@ -441,11 +443,19 @@ export class LookUpService {
       );
     }
 
-    let courseURL = `/courses?q=name~${row['Course Semester - Input'] || ''}-${row['Course Number - Input'] || ''}`;
+    const namePattern = effectiveSettings.coursePattern || '{semester}-{course}-{year}';
+    const legacyCourseName = namePattern
+      .replace('{semester}', courseSemester || '')
+      .replace('{course}', course || '')
+      .replace('{year}', courseYear || '');
 
-    if ('Instructor Last Name - Input' in row && row['Instructor Last Name - Input']) {
-      courseURL += `%20AND%20instructors~${encodeURIComponent(row['Instructor Last Name - Input'])}`;
+    let courseURL = `/courses?q=name~${encodeURIComponent(legacyCourseName)}`;
+
+    if (instructor) {
+      courseURL += `%20AND%20instructors~${encodeURIComponent(instructor)}`;
     }
+
+    console.log('Constructed course search URL (legacy):', courseURL);
 
     return this.restService.call(courseURL).pipe(
       concatMap((response: any) => {

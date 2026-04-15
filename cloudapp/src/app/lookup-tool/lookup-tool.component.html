@@ -53,6 +53,11 @@
       <input matInput [(ngModel)]="pasteForm.courseSemester" />
     </mat-form-field>
 
+    <mat-form-field appearance="fill" class="full-width">
+      <mat-label>Course Year</mat-label>
+      <input matInput [(ngModel)]="pasteForm.courseYear" />
+    </mat-form-field>
+
     <mat-form-field *ngIf="config && !config.useLegacyMapping" appearance="fill" class="full-width">
       <mat-label>Course Term for Mapping</mat-label>
       <input matInput [(ngModel)]="pasteForm.courseTermForMapping" />
