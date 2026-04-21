@@ -1,19 +1,44 @@
-import { from, of, combineLatest, Observable, iif, forkJoin, Subscription  } from 'rxjs';
-import { tap , concatMap, switchMap, flatMap, toArray, mergeAll, map, catchError, finalize, mergeMap} from 'rxjs/operators';
-import { Component, OnInit, OnDestroy,ViewChild } from '@angular/core';
-import { RestErrorResponse, CloudAppRestService, HttpMethod,CloudAppSettingsService, CloudAppEventsService, PageInfo} from '@exlibris/exl-cloudapp-angular-lib';
+import { Component, OnDestroy, OnInit, ViewChild } from '@angular/core';
+import { CloudAppRestService, CloudAppSettingsService } from '@exlibris/exl-cloudapp-angular-lib';
 import { TranslateService } from '@ngx-translate/core';
-
 import * as XLSX from 'xlsx';
-import * as FileSaver from 'file-saver';
 import { saveAs } from 'file-saver-es';
+
+import { from, Observable, of, Subscription } from 'rxjs';
+import {concatMap, switchMap, map, tap, catchError, toArray, finalize } from 'rxjs/operators';
 import { Settings } from '../models/settings.model';
-import { Configuration } from "../models/configuration.model";
-
+import { Configuration } from '../models/configuration.model';
 import { ItemService } from './item.service';
-import {JSONPath} from 'jsonpath-plus';
 
+type SpreadsheetRow = Record<string, any>;
 
+interface ProcessResult {
+  courseKey: string;
+  mmsId: string;
+  barcode: string;
+  readingListSection: string;
+  citationType: string;
+  itemPolicy: string;
+  reservesLibrary: string;
+  reservesLocation: string;
+  completeCitation: boolean;
+
+  courseValid: boolean;
+  readingListValid: boolean;
+  citationExists: boolean;
+  citationAdded: boolean;
+  itemMoveAttempted: boolean;
+  itemMoveValid: boolean;
+
+  course?: any;
+  courseId?: string;
+  readingList?: any;
+  readingListId?: string;
+  readingListName?: string;
+  citation?: any;
+  citations?: any;
+  errorMessage?: string;
+}
 
 @Component({
   selector: 'app-main',
@@ -21,1183 +46,697 @@ import {JSONPath} from 'jsonpath-plus';
   styleUrls: ['./main.component.scss']
 })
 export class MainComponent implements OnInit, OnDestroy {
-  @ViewChild("drop", { static: false }) dropZone: any;
-  private pageLoad$: Subscription;
-  loadingConfig: boolean = false;
-  isChecked: boolean;
-  moveRequested: boolean;
-  complete: boolean;
-  config: Configuration;
-  hasApiResult: boolean = false;
-  library: string;
-  location: string;
-  pub_status: string;
-  visibility: string;
+  @ViewChild('drop', { static: false }) dropZone: any;
+
+  private pageLoad$?: Subscription;
   private _apiResult: any;
-  settings: Settings;
-  files: File[] = [];
-  counter: number = 0;
-  loadingSettings: boolean = false;
-  previousCourseEntry = new Array();
-  previousReadingListEntry  = new Array();
-  uniqueCompletedReadingLists = new Array();
-  uniqueNonComplete = new Array();
-  completeArray = new Array();
-  // this has the same value as the course code but is used for tracking
-  // reading lists, if they are the same as the previous so processing can be skipped
-  previousReadingListCode = new Array();
-  previousCourseCode = new Array();
+
+  loadingConfig = false;
+  loadingSettings = false;
   loading = false;
-  arrayBuffer:any;
+  hasApiResult = false;
+
+  isChecked = false;
+  moveRequested = false;
+  complete = false;
+
+  config!: Configuration;
+  settings!: Settings;
+
+  library = '';
+  location = '';
+  pub_status = '';
+  visibility = '';
+
+  files: File[] = [];
+  arrayBuffer: ArrayBuffer | null = null;
+
+  counter = 0;
   courseProcessed = 0;
   rLProcessed = 0;
+  completedReadingLists = 0;
+
   resultMessage = '';
-  completedReadingLists: number = 0;
-  completedList = new Array();
-  nonCompletedReadingLists = new Array();
 
-
+  previousCourseEntry: any[] = [];
+  previousReadingListEntry: any[] = [];
+  previousReadingListCode: string[] = [];
+  previousCourseCode: string[] = [];
+  uniqueCompletedReadingLists: string[] = [];
+  uniqueNonComplete: string[] = [];
+  completeArray: any[] = [];
+  completedList: string[] = [];
+  nonCompletedReadingLists: string[] = [];
 
   courseMMSIdInput = '';
-  course_code = "";
+  course_code = '';
   courses: any;
   reading_lists: any;
-  private log = (str: string) => this.resultMessage += str+'\n';  
-  
+
+  private log = (str: string) => {
+    this.resultMessage += str + '\n';
+  };
 
   constructor(
     private itemService: ItemService,
     private translate: TranslateService,
     private restService: CloudAppRestService,
-    private settingsService: CloudAppSettingsService,
-    private eventsService: CloudAppEventsService
-    
-    
-  ) { }
+    private settingsService: CloudAppSettingsService
+  ) {}
 
-ngOnInit() {
+  ngOnInit(): void {
     this.loadingConfig = true;
+
     this.settingsService.get().subscribe({
       next: (res: Configuration) => {
         if (res && Object.keys(res).length !== 0) {
           this.config = res;
-          
         }
         this.loadingConfig = false;
       },
       error: (err: Error) => {
-        console.log(console.log(JSON.stringify(this.config)));
         console.error(err.message);
         this.loadingConfig = false;
-      },
+      }
     });
-    
   }
 
   ngOnDestroy(): void {
+    this.pageLoad$?.unsubscribe();
   }
 
-  onSelect(event) {
-    this.files.push(...event.addedFiles);
+  onSelect(event: { addedFiles: File[] }): void {
+    this.files = [...event.addedFiles];
   }
 
-  onRemove(event) {
-    this.files.splice(this.files.indexOf(event), 1);
-  } 
-  
-  get apiResult() {
+  onRemove(file: File): void {
+    this.files.splice(this.files.indexOf(file), 1);
+  }
+
+  get apiResult(): any {
     return this._apiResult;
   }
 
   set apiResult(result: any) {
     this._apiResult = result;
-    this.hasApiResult = result && Object.keys(result).length > 0;
+    this.hasApiResult = !!(result && Object.keys(result).length > 0);
   }
 
-  onPageLoad = (pageInfo: PageInfo) => {
-    //var url = 
+  loadExecl(): void {
+    if (!this.files.length) {
+      return;
+    }
 
-      
+    this.resetRunState();
 
-  }
-  loadExecl() {
-    this.restService.call(`/bibs/991019093176603851`)
-    .pipe(catchError(e=> {throw (e)})
-    ,
-    switchMap(bib => {
-
-     console.log(JSON.stringify(bib));
-
-      return bib;
-
-    })
-    )
-    //console.log(this.config.mustConfig.library)
-    //console.log(this.config.from.locations);
-    //console.log(this.config.isChecked);
-    //console.log(this.config.mustConfig.pub_status)
-    this.library = this.config.mustConfig.library;
-    this.location = this.config.from.locations;
-    this.isChecked = this.config.isChecked;
-    this.moveRequested = this.config.moveRequested;
-    //console.log(this.config);
+    this.library = this.config?.mustConfig?.library || '';
+    this.location = this.config?.from?.locations || '';
+    this.isChecked = !!this.config?.isChecked;
+    this.moveRequested = !!this.config?.moveRequested;
+    this.pub_status = this.config?.mustConfig?.pub_status || 'DRAFT';
+    this.visibility = this.config?.mustConfig?.visibility || 'ALL';
     this.loading = true;
+
+    const fileReader = new FileReader();
+
+    fileReader.onerror = (event: ProgressEvent<FileReader>) => {
+      this.loading = false;
+      this.log('Fatal error: unable to read spreadsheet.');
+      console.error('FileReader error', this.toSafeError(event));
+    };
+
+    fileReader.onload = () => {
+      try {
+        this.arrayBuffer = fileReader.result as ArrayBuffer;
+        const items = this.readSpreadsheet(this.arrayBuffer);
+        this.processItems(items);
+      } catch (err: any) {
+        this.loading = false;
+        const safe = this.toSafeError(err);
+        console.error('Spreadsheet processing failed', safe);
+        this.log(`Fatal error: ${safe.message}`);
+      }
+    };
+
+    fileReader.readAsArrayBuffer(this.files[0]);
+  }
+
+  private resetRunState(): void {
+    this.loading = false;
     this.courseProcessed = 0;
-    let fileReader = new FileReader();
-    let results =[];
-    let courseIds =[]
-    let resultsRL =[];
+    this.rLProcessed = 0;
     this.resultMessage = '';
-   // console.log(this.config.mustConfig.isChecked)
-    fileReader.onload = (e) => {
-        this.arrayBuffer = fileReader.result;
-        var data = new Uint8Array(this.arrayBuffer);
-        var arr = new Array();
-        for(var i = 0; i != data.length; ++i) arr[i] = String.fromCharCode(data[i]);
-        var bstr = arr.join("");
-        var workbook = XLSX.read(bstr, {type:"binary", cellStyles: true });
-        var first_sheet_name = workbook.SheetNames[0];
-        var worksheet = workbook.Sheets[first_sheet_name];
-        let courseIds = new Array();
-        let courseId = "";
-        // let updatedItems = new Array();
-        let course_code = "Course Code"
-        let mms_id = "MMS ID"
-        let items: any[] =XLSX.utils.sheet_to_json(worksheet,{defval:"", skipHidden: true});
-        items = items.sort((a, b) => {
-          if (a.course_code < b.course_code) {
-            return -1;
+    this.completedReadingLists = 0;
+
+    this.previousCourseEntry = [];
+    this.previousReadingListEntry = [];
+    this.uniqueCompletedReadingLists = [];
+    this.uniqueNonComplete = [];
+    this.completeArray = [];
+    this.previousReadingListCode = [];
+    this.previousCourseCode = [];
+    this.completedList = [];
+    this.nonCompletedReadingLists = [];
+  }
+
+private readSpreadsheet(data: ArrayBuffer): SpreadsheetRow[] {
+  const bytes = new Uint8Array(data);
+  const chars: string[] = [];
+
+  for (let i = 0; i < bytes.length; i++) {
+    chars[i] = String.fromCharCode(bytes[i]);
+  }
+
+  const bstr = chars.join('');
+  const workbook = XLSX.read(bstr, { type: 'binary', cellStyles: true });
+  const firstSheetName = workbook.SheetNames[0];
+  const worksheet: any = workbook.Sheets[firstSheetName];
+
+  const range = XLSX.utils.decode_range(worksheet['!ref'] || 'A1:A1');
+  const rowsMeta = worksheet['!rows'] || [];
+
+  const allRows: any[][] = XLSX.utils.sheet_to_json(worksheet, {
+    header: 1,
+    defval: '',
+    blankrows: false
+  });
+
+  if (!allRows.length) {
+    return [];
+  }
+
+  const headerRow = allRows[0].map((h: any) => String(h || '').trim());
+
+  const visibleDataRows = allRows
+    .slice(1)
+    .filter((_: any[], idx: number) => {
+      const worksheetRowNumber = idx + 2; // row 1 is header
+      const rowMeta = rowsMeta[worksheetRowNumber - 1];
+      return !(rowMeta && rowMeta.hidden);
+    })
+    .map((row: any[]) => {
+      const obj: SpreadsheetRow = {};
+      headerRow.forEach((header: string, colIndex: number) => {
+        obj[header] = row[colIndex] ?? '';
+      });
+      return obj;
+    });
+
+  visibleDataRows.sort((a: SpreadsheetRow, b: SpreadsheetRow) => {
+    const aCode = this.getString(a, 'course_code', 'Course Code');
+    const bCode = this.getString(b, 'course_code', 'Course Code');
+    return aCode.localeCompare(bCode);
+  });
+
+  return visibleDataRows;
+}
+
+  private processItems(items: SpreadsheetRow[]): void {
+    const results: ProcessResult[] = [];
+
+    from(items).pipe(
+      
+      concatMap((item: SpreadsheetRow) =>
+        
+        this.processSingleItem(item).pipe(
+          tap((result: ProcessResult) => {
+            
+            results.push(result);
+            this.courseProcessed += 1;
+          }),
+          catchError((err) => {
+            const safe = this.toSafeError(err);
+
+            const failedResult: ProcessResult = {
+              courseKey: this.getCourseKey(item),
+              mmsId: this.getString(item, 'mms_id', 'MMS ID'),
+              barcode: this.getString(item, 'barcode', 'Barcode'),
+              readingListSection: this.getString(item, 'section_info', 'Section Info'),
+              citationType: this.getString(item, 'citation_type', 'Citation Type', 'secondary_type'),
+              itemPolicy: this.getString(item, 'item_policy', 'Item Policy'),
+              reservesLibrary: this.library,
+              reservesLocation: this.location,
+              completeCitation: this.isChecked || !this.getString(item, 'barcode', 'Barcode'),
+              courseValid: false,
+              readingListValid: false,
+              citationExists: false,
+              citationAdded: false,
+              itemMoveAttempted: false,
+              itemMoveValid: false,
+              errorMessage: safe.message
+
+              
+            };
+
+            
+                          console.log('---- START ITEM ----', {
+          course: this.getCourseKey(item),
+         mmsId: this.getString(item, 'mms_id', 'MMS ID'),
+          barcode: this.getString(item, 'barcode', 'Barcode')
+  });
+
+
+            results.push(failedResult);
+            this.courseProcessed += 1;
+            return of(failedResult);
+          })
+        )
+      ),
+      toArray(),
+      finalize(() => {
+        this.finishRun(results);
+      })
+    ).subscribe({
+      error: (err) => {
+        const safe = this.toSafeError(err);
+        console.error('Citation loader failed', safe);
+        this.loading = false;
+        this.log(`Fatal error: ${safe.message}`);
+      }
+    });
+  }
+
+private processSingleItem(item: SpreadsheetRow): Observable<ProcessResult> {
+  const mmsId = this.getString(item, 'mms_id', 'MMS ID');
+  const barcode = this.getString(item, 'barcode', 'Barcode');
+  const citationType = this.getString(item, 'citation_type', 'Citation Type', 'secondary_type');
+  const readingListSection = this.getString(item, 'section_info', 'Section Info') || 'Resources';
+  const itemPolicy = this.getString(item, 'item_policy', 'Item Policy');
+  const reservesLibrary = this.library;
+  const reservesLocation = this.location;
+  const completeCitation = this.isChecked || !barcode;
+
+  return this.itemService.processUser(
+    item,
+    this.previousCourseEntry,
+    this.previousCourseCode,
+    this.courseProcessed
+  ).pipe(
+    concatMap((courseResult: any): Observable<ProcessResult> => {
+      this.previousCourseEntry.push(courseResult);
+
+        console.log('Calling processUser (course lookup)', {
+  courseKey: this.getCourseKey(item)
+});
+      const courseKey = this.getCourseKey(item, courseResult);
+      this.previousCourseCode.push(courseKey);
+
+      console.log('Course result', courseResult);
+      const courseValid = !!(courseResult?.course?.[0]);
+      const courseId = courseValid ? courseResult.course[0].id : '';
+
+      console.log('Calling readingListLookup', {
+        courseId,
+        courseKey
+      });
+      return this.itemService.readingListLookup(
+        courseResult,
+        courseKey,
+        courseId,
+        this.previousReadingListCode,
+        this.previousReadingListEntry,
+        this.rLProcessed,
+        courseValid,
+        this.pub_status,
+        this.visibility
+      ).pipe(
+        concatMap((readingListResult: any): Observable<ProcessResult> => {
+          this.previousReadingListEntry.push(readingListResult);
+          this.previousReadingListCode.push(courseKey);
+          this.rLProcessed += 1;
+
+          const readingListMeta = this.itemService.extractReadingListMeta(readingListResult);
+          const readingListValid = readingListMeta.valid;
+          console.log('Reading list result', readingListResult);
+          if (!courseValid || !readingListValid || !readingListMeta.id || !courseId) {
+            return of({
+              courseKey,
+              mmsId,
+              barcode,
+              readingListSection,
+              citationType,
+              itemPolicy,
+              reservesLibrary,
+              reservesLocation,
+              completeCitation,
+              courseValid,
+              readingListValid,
+              citationExists: false,
+              citationAdded: false,
+              itemMoveAttempted: false,
+              itemMoveValid: false,
+              course: courseResult,
+              courseId,
+              readingList: readingListResult,
+              readingListId: readingListMeta.id,
+              readingListName: readingListMeta.name,
+              errorMessage: readingListMeta.errorMessage
+            } as ProcessResult);
+          }
+          console.log('Calling getCitations', {
+          courseId,
+          readingListId: readingListMeta.id
+        });
+          return this.itemService.getCitations(readingListMeta.id, courseId).pipe(
+            concatMap((citations: any): Observable<ProcessResult> => {
+              const existingMmsIds = this.itemService.extractCitationMmsIds(citations);
+              const citationExists = existingMmsIds.includes(mmsId);
+
+              if (citationExists) {
+                return of({
+                  courseKey,
+                  mmsId,
+                  barcode,
+                  readingListSection,
+                  citationType,
+                  itemPolicy,
+                  reservesLibrary,
+                  reservesLocation,
+                  completeCitation,
+                  courseValid,
+                  readingListValid,
+                  citationExists: true,
+                  citationAdded: false,
+                  itemMoveAttempted: false,
+                  itemMoveValid: true,
+                  course: courseResult,
+                  courseId,
+                  readingList: readingListResult,
+                  readingListId: readingListMeta.id,
+                  readingListName: readingListMeta.name,
+                  citations
+                } as ProcessResult);
+              }
+
+              console.log('Calling addToList', {
+                courseId,
+                readingListId: readingListMeta.id,
+                mmsId
+              });
+              return this.itemService.addToList(
+                readingListMeta.id,
+                courseId,
+                mmsId,
+                citationType,
+                readingListSection,
+                completeCitation
+              ).pipe(
+                concatMap((citation: any): Observable<ProcessResult> => {
+                  const canMove =
+                    !!barcode &&
+                    !!this.moveRequested &&
+                    (!!itemPolicy || (!!reservesLibrary && !!reservesLocation));
+
+                  if (!canMove) {
+                    return of({
+                      courseKey,
+                      mmsId,
+                      barcode,
+                      readingListSection,
+                      citationType,
+                      itemPolicy,
+                      reservesLibrary,
+                      reservesLocation,
+                      completeCitation,
+                      courseValid,
+                      readingListValid,
+                      citationExists: false,
+                      citationAdded: !citation?.error,
+                      itemMoveAttempted: false,
+                      itemMoveValid: true,
+                      course: courseResult,
+                      courseId,
+                      readingList: readingListResult,
+                      readingListId: readingListMeta.id,
+                      readingListName: readingListMeta.name,
+                      citation
+                    } as ProcessResult);
+                  }
+
+                  console.log('Calling updateItem', {
+                    barcode,
+                    reservesLibrary,
+                    reservesLocation,
+                    itemPolicy
+                  });
+                  return this.itemService.updateItem(
+                    barcode,
+                    reservesLibrary,
+                    reservesLocation,
+                    itemPolicy
+                  ).pipe(
+                    map((moveResult: any): ProcessResult => ({
+                      courseKey,
+                      mmsId,
+                      barcode,
+                      readingListSection,
+                      citationType,
+                      itemPolicy,
+                      reservesLibrary,
+                      reservesLocation,
+                      completeCitation,
+                      courseValid,
+                      readingListValid,
+                      citationExists: false,
+                      citationAdded: !citation?.error,
+                      itemMoveAttempted: true,
+                      itemMoveValid: !moveResult?.error,
+                      course: courseResult,
+                      courseId,
+                      readingList: readingListResult,
+                      readingListId: readingListMeta.id,
+                      readingListName: readingListMeta.name,
+                      citation
+                    })),
+                    catchError((err): Observable<ProcessResult> => {
+                      const safe = this.toSafeError(err);
+                      return of({
+                        courseKey,
+                        mmsId,
+                        barcode,
+                        readingListSection,
+                        citationType,
+                        itemPolicy,
+                        reservesLibrary,
+                        reservesLocation,
+                        completeCitation,
+                        courseValid,
+                        readingListValid,
+                        citationExists: false,
+                        citationAdded: !citation?.error,
+                        itemMoveAttempted: true,
+                        itemMoveValid: false,
+                        course: courseResult,
+                        courseId,
+                        readingList: readingListResult,
+                        readingListId: readingListMeta.id,
+                        readingListName: readingListMeta.name,
+                        citation,
+                        errorMessage: safe.message
+                      } as ProcessResult);
+                    })
+                  );
+                })
+              );
+            })
+          );
+        })
+      );
+    })
+  );
+}
+
+  private finishRun(results: ProcessResult[]): void {
+    let successCount = 0;
+    let errorCount = 0;
+    let skippedCount = 0;
+
+    const updatedItems: string[] = [];
+    let errorSummary = '';
+    let skippedSummary = '';
+
+    results.forEach((res: ProcessResult) => {
+      if (!res.courseValid) {
+        errorCount++;
+        errorSummary += `Error for course ${res.courseKey}${res.errorMessage ? `: ${res.errorMessage}` : ''}\n`;
+        this.nonCompletedReadingLists.push(res.courseKey);
+        return;
+      }
+
+      if (!res.readingListValid) {
+        errorCount++;
+        errorSummary += `Error in reading list for course ${res.courseKey} and MMS ID ${res.mmsId}${res.errorMessage ? `: ${res.errorMessage}` : ''}\n`;
+        this.nonCompletedReadingLists.push(res.courseKey);
+        return;
+      }
+
+      if (res.citationExists) {
+        skippedCount++;
+        skippedSummary += `citation already exists for course ${res.courseKey} and MMS ID ${res.mmsId}\n`;
+        return;
+      }
+
+      if (!res.citationAdded || !res.citation || res.citation.error) {
+        errorCount++;
+        errorSummary += `Bad MMS ID for course ${res.courseKey} and MMS ID ${res.mmsId}${res.errorMessage ? `: ${res.errorMessage}` : ''}\n`;
+        this.nonCompletedReadingLists.push(res.courseKey);
+        return;
+      }
+
+      const readingListName = res.readingListName || '';
+      const citationId = res.citation?.id ? JSON.stringify(res.citation.id) : '';
+      const sectionText = res.readingListSection ? `, section: ${JSON.stringify(res.readingListSection)}` : '';
+
+      if (res.itemMoveAttempted && !res.itemMoveValid) {
+        errorCount++;
+        errorSummary += `Error moving physical items for course ${res.courseKey} and MMS ID ${res.mmsId} to library ${res.reservesLibrary} and location ${res.reservesLocation}\n`;
+        this.nonCompletedReadingLists.push(res.courseKey);
+        return;
+      }
+
+      if (res.itemMoveAttempted && res.itemMoveValid && !res.completeCitation) {
+        updatedItems.push(
+          `course code: ${JSON.stringify(res.courseKey)}, reading list: ${readingListName}${sectionText}, MMS ID: ${res.mmsId} citation: ${citationId} - Item with barcode ${res.barcode} sytemically moved to temp location but still needs to be physically moved and is not marked as complete`
+        );
+        successCount++;
+        this.nonCompletedReadingLists.push(res.courseKey);
+      } else if (!res.itemMoveAttempted && !res.completeCitation) {
+        updatedItems.push(
+          `course code: ${JSON.stringify(res.courseKey)}, reading list: ${readingListName}${sectionText}, MMS ID: ${res.mmsId} citation: ${citationId} - Item with barcode ${res.barcode} on reading list and remains in its current location but is not marked as complete`
+        );
+        successCount++;
+        this.nonCompletedReadingLists.push(res.courseKey);
+      } else if (res.itemMoveAttempted && res.itemMoveValid) {
+        updatedItems.push(
+          `course code: ${JSON.stringify(res.courseKey)}, reading list: ${readingListName}${sectionText}, MMS ID: ${res.mmsId} citation: ${citationId} - Item with barcode ${res.barcode} moved to new location`
+        );
+        successCount++;
+      } else {
+        updatedItems.push(
+          `course code: ${JSON.stringify(res.courseKey)}, reading list: ${readingListName}${sectionText}, MMS ID: ${res.mmsId} citation: ${citationId}`
+        );
+        successCount++;
+      }
+
+      if (res.course?.course?.[0]?.id && res.readingListId) {
+        const completeUrl = `/courses/${res.course.course[0].id}/reading-lists/${res.readingListId}`;
+        if (!this.uniqueCompletedReadingLists.includes(completeUrl)) {
+          this.uniqueCompletedReadingLists.push(completeUrl);
+        }
+      }
+    });
+
+    this.uniqueNonComplete = this.nonCompletedReadingLists.filter(
+      (item: string, i: number, arr: string[]) => arr.indexOf(item) === i
+    );
+
+    this.log(`${this.translate.instant('Main.Processed')}: ${this.courseProcessed}`);
+    this.log(`${this.translate.instant('Main.Updated')}: ${successCount}`);
+    this.log(`Number of skipped records: ${skippedCount}`);
+    this.log(`${this.translate.instant('Main.Failed')}: ${errorCount}\n`);
+
+    if (errorSummary) {
+      this.log(`Errors:\n ${errorSummary}`);
+    }
+
+    if (skippedSummary) {
+      this.log(`Skipped: \n${skippedSummary}`);
+    }
+
+    if (updatedItems.length) {
+      this.log(`${this.translate.instant('Main.ProcessedItems')}:\n ${updatedItems.join(', ')}`);
+    }
+
+    this.completeReadingLists();
+    this.files = [];
+  }
+
+  completeReadingLists(): void {
+    const results: any[] = [];
+
+    from(this.uniqueCompletedReadingLists).pipe(
+      concatMap((url: string) =>
+        this.itemService.completeReadingLists(url).pipe(
+          catchError((err) => of(this.toSafeError(err)))
+        )
+      ),
+      toArray()
+    ).subscribe({
+      next: (arr: any[]) => {
+        results.push(...arr);
+      },
+      error: (err) => {
+        const safe = this.toSafeError(err);
+        console.error('Error completing reading lists', safe);
+        this.log(`Error completing reading lists: ${safe.message}`);
+        this.loading = false;
+      },
+      complete: () => {
+        results.forEach((res: any) => {
+          if (!res?.error) {
+            this.completedReadingLists++;
+            if (res?.code) {
+              this.completedList.push(res.code);
+            }
           }
         });
-        // console.log("Confirm ordering")
-        // console.log(JSON.stringify(items));
-        let count = 0;
-        // this.previousEntry.push(["0","0","0","0"]);
-        from(items).pipe(
-    
-          concatMap(item => this.itemService.processUser(item, this.previousCourseEntry, this.previousCourseCode, this.courseProcessed).pipe(
-            tap((userResult) => this.previousCourseEntry.push(userResult)),
-            
-            concatMap(userResult => {
-              //console.log(`${JSON.stringify(this.previousCourseEntry)}`)
-              // Implement your conditional logic here
-              let reading_list_id: string;
-              let reading_list_name: string;
-              
-              //console.log(userResult);
 
-                let course_code:string;
-                let mms_id: string;
-              
-              if ('course_code' in item){
+        this.log(`${this.translate.instant('Number of Completed Reading Lists')}: ${this.completedReadingLists}`);
+        this.log(`${this.translate.instant('Total Number of Non-Completed Reading Lists')}: ${this.uniqueNonComplete.length}`);
 
-                course_code = item.course_code.replace(/[\{\}"']/g, "");
-              }
+        if (this.completedList.length) {
+          this.log(`${this.translate.instant('Completed Reading Lists')}:\n ${this.completedList.join(', ')}`);
+        }
 
-              else{
+        if (this.uniqueNonComplete.length) {
+          this.log(`${this.translate.instant('Non-Completed Reading Lists')}:\n ${this.uniqueNonComplete.join(', ')}`);
+        }
 
-                course_code = item['Course Code'].replace(/[\{\}"']/g, "");
-              }
-              
-              
-              if ('mms_id' in item){
-
-                mms_id = item.mms_id.replace(/[\{\}"']/g, "");
-              }
-
-              else{
-              mms_id = item['MMS ID'].replace(/[\{\}"']/g, "");
-              }
-              
-
-            
-              let course_id: string;
-              
-              let barcode: string;
-              if ('barcode' in item){
-
-                barcode = item.barcode;
-              }
-
-              else if ('Barcode' in item){
-
-                barcode = item.Barcode.replace(/[\{\}"']/g, "");
-              }
-              
-              let citation_type:string;
-
-              if ('citation_type' in item){
-                citation_type = item.citation_type;
-
-              }
-
-              else if ('Citation Type' in item){
-
-                citation_type = item['Citation Type'];
-              }
-
-              else if ('secondary_type' in item){
-
-                citation_type = item.secondary_type;
-              }
-
-              let item_policy: string;
-              if ('Item Policy' in item){
-                
-                item_policy = item['Item Policy'].replace(/[\{\}"']/g, "");
-              }
-
-              else if ('item_policy' in item){
-
-                item_policy = item['item_poliy'].replace(/[\{\}"']/g, "");
-              }
-              
-              //let reserves_library: string = item.temporary_library;
-              let reserves_library: string = this.library;
-              
-              //let reserves_location: string = item.temporary_location;
-              let reserves_location = this.location;
-              //console.log(reserves_library);
-              //console.log(reserves_location);
-              let response = userResult[0];  
-            
-              let valid = false;
-              
-              let reading_list_section: string;
-              if ("section_info" in item){
-                reading_list_section = item.section_info;
-                
-              }
-
-              else if ("Section Info" in item){
-                reading_list_section = item['Section Info'];
-              }
-
-
-              
-              let course_section: string;
-              let course_code_and_section: string;
-              if ("Course Section" in item){
-                if (item['Course Section'] != ""){
-                
-                course_section = item['Course Section'];
-                course_code_and_section = course_code + "-" + course_section.replace(/[\{\}"']/g, "");;
-                //console.log(course_code_and_section);
-                }
-                
-                else{
-
-                  course_code_and_section = course_code;
-                }
-              }
-
-              else if ("course_section" in item){
-                if (item['course_section'] != ""){
-                
-                course_section = item['course_section'];
-                course_code_and_section = course_code + "-" + course_section.replace(/[\{\}"']/g, "");;
-                //console.log(course_code_and_section);
-                }
-                
-                else{
-
-                  course_code_and_section = course_code;
-                }
-              }
-
-              // else if ('course_section' in item){
-
-              //   if (item.course_section != ""){
-              //   course_section = item['course_section'];
-              //   course_code_and_section = course_code + "-" + course_section;
-              //   //console.log(course_code_and_section);
-              //   }
-              //   else{
-
-              //     course_code_and_section = course_code;
-              //   }
-              // }
-
-              else{
-
-                course_code_and_section = course_code;
-              }
-              if ('course' in userResult) {
-                
-                course_code = userResult.course[0].code;
-                course_id = userResult.course[0].id;
-                course_section = userResult.course[0].section;
-                
-                course_code_and_section = course_code + "-" + course_section;
-              
-                valid = true;
-                //console.log(userResult);
-                return forkJoin([of(valid), of(userResult), of(userResult), of(course_id), of(mms_id), of(course_code_and_section), of(barcode), of(reserves_library), of(reserves_location), of(citation_type), of(reading_list_section), of(item_policy)])//, this.itemService.getCitations(reading_list_id, course_id), of(barcode), of(citation_type), of(reserves_library), of(reserves_location)])
-
-                              } 
-                                           
-              else{
-                
-                valid = false;
-                let dummyCourse = userResult;
-                return forkJoin([of(valid), of(userResult), of(dummyCourse), of(course_id), of(mms_id), of(course_code_and_section), of(barcode), of(reserves_library), of(reserves_location), of(citation_type), of(reading_list_section), of(item_policy)])//, of(dummyCitations), of(barcode), of(citation_type), of(reserves_library), of(reserves_location)])
-
-              
-              }
-            }),
-            tap((courses) => {this.previousCourseCode.push(courses[5])}),
-            tap((courses) => {this.completeArray.push(courses)}),
-            tap((courses =>  {
-              //(JSON.stringify(this.completeArray));
-              
-              }
-            )),
-            concatMap(courses => {
-
-              
-              let course = courses[1];
-              let course_id = courses[3];
-              let mms_id = courses[4];
-              let course_code_and_section = courses[5]
-              let barcode = courses[6]
-              let reserves_library = courses[7]
-              let reserves_location = courses[8]
-              let citation_type = courses[9]
-              let reading_list_section = courses[10]
-              let item_policy = courses[11]
-             // console.log(JSON.stringify(course))
-              
-              if ('course' in course){
-                //console.log("course in courses")
-                  let valid = true
-            //}
-                return forkJoin([of(valid), of(course), this.itemService.readingListLookup(course, course_code_and_section, course_id, this.previousReadingListCode, this.previousReadingListEntry, this.rLProcessed, valid, this.config.mustConfig.pub_status, this.config.mustConfig.visibility), of(course_id), of(mms_id), of(course_code_and_section), of(barcode), of(reserves_library), of(reserves_location), of(citation_type), of(reading_list_section), of(item_policy)])
-              }
-
-
-
-              else{
-                let valid = false
-                return forkJoin([of(valid), of(course), this.itemService.readingListLookup(course, course_code_and_section, course_id, this.previousReadingListCode, this.previousReadingListEntry, this.rLProcessed, valid, this.config.mustConfig.pub_status, this.config.mustConfig.visibility), of(course_id), of(mms_id), of(course_code_and_section), of(barcode), of(reserves_library), of(reserves_location), of(citation_type), of(reading_list_section), of(item_policy)])
-
-              }
-            }),
-            tap((reading_list_object) => {
-             // console.log(JSON.stringify(reading_list_object))  
-             // console.log(JSON.stringify(this.previousReadingListEntry))
-             // console.log(JSON.stringify(this.previousReadingListCode))
-              this.previousReadingListEntry.push(reading_list_object[2])
-              
-            
-            }),
-          tap((reading_list_object) => {
-          //  console.log(JSON.stringify(reading_list_object[5]))
-            this.previousReadingListCode.push(reading_list_object[5])
-            
-           
-          
-
-            
-        }), 
-            concatMap(reading_list => {
-              let reading_list_object = reading_list[2]
-              
-             // console.log(JSON.stringify(this.previousReadingListEntry))//[this.previousReadingListEntry.length  -1]);
-              //console.log(JSON.stringify(reading_list))
-              let valid = reading_list[0]
-              let courses = reading_list[1]
-              let course_code_and_section = reading_list[5];
-              let course_id = reading_list[3];
-              let mms_id  = reading_list[4];
-              
-              let barcode = reading_list[6]
-              let reserves_library = reading_list[7]
-              let reserves_location = reading_list[8]
-              let citation_type = reading_list[9]
-              let reading_list_section = reading_list[10]
-              let item_policy = reading_list[11];
-              //console.log(reading_list_object)
-
-              let reading_list_id: string;
-              let reading_list_name: string;
-              if ('reading_list' in reading_list[2] || 'id' in reading_list[2]) {
-
-                if ('reading_list' in reading_list[2]){
-                reading_list_id = reading_list[2]['reading_list'][0]['id'];
-                reading_list_name = reading_list[2]['reading_list'][0]['name'];
-
-                }
-
-                else if ('id' in reading_list[2]){
-              reading_list_id = reading_list[2]['id'];
-                reading_list_name = reading_list[2]['name'];
-
-                }
-                //console.log(JSON.stringify(reading_list[2]))
-                
-                let valid = true;
-                let reading_list_valid = true;
-                return forkJoin([of(valid), of(courses), of(reading_list_object), of(course_id), of(mms_id), of(course_code_and_section), this.itemService.getCitations(reading_list_id, course_id), of(barcode), of(reserves_library), of(reserves_location) , of(citation_type), of(reading_list_valid), of(reading_list_section), of(item_policy)])
-
-                                          } 
-                                                     
-              else{
-                
-                
-                
-                let reading_list_valid = false;
-                let dummyCitations = courses
-                return forkJoin([of(valid), of(courses), of(reading_list_object), of(course_id), of(mms_id), of(course_code_and_section), of(dummyCitations), of(barcode), of(reserves_library), of(reserves_location) , of(citation_type), of(reading_list_valid), of(reading_list_section), of(item_policy)])
-
-              
-              }
-                          
-                          
-              
-            }),
-             
-          
-            tap((object) => {
-              let reading_list_id: string;
-
-              if ('reading_list' in object[2]){
-                reading_list_id = object[2]['reading_list'][0]['id'];
-
-              }
-              
-              else if ('id' in object[2]){
-
-                reading_list_id = object[2]['id'];
-              }
-              try{
-
-                reading_list_id = object[2]['reading_list'][0]['id'];
-              }
-
-              catch{
-                reading_list_id = "";
-              }
-      
-            
-            }),
-            concatMap(object => {
-            let complete: boolean;
-
-            
-            let valid = object[0];
-            let courses = object[1];
-            let reading_list_object  = object[2];
-            let course_id = object[3];
-            let mms_id = object[4];
-            let course_code_and_section = object[5];
-            let citations: any = object[6];
-            let barcode = object[7];
-            let reserves_library = object[8];
-            let reserves_location = object[9];
-            
-            let citation_type = object[10];
-            let reading_list_valid = object[11]
-            let reading_list_section = object[12]
-            let item_policy = object[13]
-
-
-            let mmsIdArray = new Array();
-            let add_item_valid: boolean;
-
-
-           // console.log(this.isChecked)
-            //console.log(barcode);
-                
-                if (this.isChecked == true || barcode == "" || barcode == undefined){
-                  complete = true;
-                  
-
-                }
-
-                else{
-
-                  complete = false;
-                 
-                }
-          if (valid && reading_list_valid){
-
-              if ('citation' in citations){
-              citations['citation'].forEach(citation => {
-                if ('metadata' in citation){
-                  if ('mms_id' in citation['metadata']){
- 
-                    mmsIdArray.push(citation['metadata']['mms_id'])
-                  }
-
-                }
-              })
-            }
-              
-           
-
-            if(!(mmsIdArray.includes(mms_id))){
-             
-              let reading_list_id: string;
-              if('reading_list' in reading_list_object){
-                reading_list_id = reading_list_object['reading_list'][0]['id'];
-
-              }
-
-              else if ('id' in reading_list_object){
-                reading_list_id = reading_list_object['id'];
-
-              }
-              
-                
-
-                //console.log(complete)
-              return this.itemService.addToList(reading_list_id, course_id, mms_id, citation_type, reading_list_section, complete).pipe(
-                concatMap(response_citation => {
-                  add_item_valid = false;
-                  let exists = false;
-                  
-                  return forkJoin([of(valid), of(courses), of(reading_list_object), of(response_citation), of(mms_id), of(course_code_and_section), of(exists), of(barcode), of(reserves_library), of(reserves_location), of(citation_type), of(reading_list_valid), of(reading_list_section), of(add_item_valid), of(complete), of(item_policy)]) // The response from addToList
-                  //reading_list_id, // Keep the original reading_list_id
-                  //course_id, // Keep the original course_id
-                  //mms_id, // Keep the original mms_id
-                  //course_code
-
-              }),
-                catchError(error => {
-                  // Handle error, you might want to include the IDs in the error as well
-                  let exists = false;
-                  add_item_valid = false;
-                  return forkJoin([of(valid), of(courses), of(reading_list_object), of(error), of(mms_id), of(course_code_and_section), of(exists), of(barcode), of(reserves_library), of(reserves_location), of(citation_type), of(reading_list_valid), of(reading_list_section), of(add_item_valid), of(complete), of(item_policy) ]) // The response from addToList
-                })
-              )
-            }
-
-            else{
-              let exists = true;
-              add_item_valid = true;
-              let userResult1 = object;
-              return forkJoin([of(valid), of(courses), of(reading_list_object), of(citations), of(mms_id), of(course_code_and_section), of(exists), of(barcode), of(reserves_library), of(reserves_location), of(citation_type), of(reading_list_valid), of(reading_list_section), of(add_item_valid), of(complete), of(item_policy)]) // The response from addToList
-              
-
-            }
-
-            
-          
-
-              
-              
-
-          }
-
-          else{
-            add_item_valid = false;
-              let exists = false
-              let userResult1 = object;
-              return forkJoin([of(valid), of(courses), of(reading_list_object), of(citations), of(mms_id), of(course_code_and_section), of(exists), of(barcode), of(reserves_library), of(reserves_location),  of(citation_type), of(reading_list_valid), of(reading_list_section), of(add_item_valid), of(complete), of(item_policy)]);
-              
-
-            
-          }
-          }), 
-          
-         
-          concatMap(object => {
-            //console.log(JSON.stringify(object));
-            let valid = object[0];
-            let courses = object[1];
-            let reading_list_object  = object[2];
-            let citations = object[3];
-            let mms_id = object[4];
-            let course_code_and_section = object[5];
-            let exists: any = object[6];
-            //let exists: boolean = object[7];
-            let barcode: string = object[7];
-            //let citation_type = object[8];
-            let reserves_library = object[8];
-            let reserves_location = object[9];
-        
-            let reading_list_valid = object[11];
-            let reading_list_section = object[12];
-            let add_item_valid = object[13];
-            let complete = object[14];
-            let item_policy = object[15];
-            let item_move_valid: boolean = true;
-            let moveable: boolean;
-
-            if(reserves_library && reserves_location && this.moveRequested){
-              moveable = true;
-            }
-
-            else{moveable = false}
-
-            //console.log(reserves_library + reserves_location)
-          // console.log(`${JSON.stringify(object)}`);
-
-          // console.log(valid);
-          // console.log(reading_list_valid);
-          // console.log(exists);
-
-            if (valid == true && reading_list_valid == true && exists == false && barcode && moveable && ((reserves_library && reserves_location || item_policy))){
-       
-
-              return this.itemService.updateItem(barcode, reserves_library, reserves_location, item_policy).pipe(
-
-                concatMap(item => {
-                  
-                  if ('error' in item){
-                    item_move_valid = false;
-                    return forkJoin([of(valid), of(courses), of(reading_list_object), of(citations), of(mms_id), of(course_code_and_section), of(exists), of(barcode), of(reserves_library), of(reserves_location), of(item_move_valid), of(reading_list_valid), of(reading_list_section), of(add_item_valid), of(moveable), of(complete), of(item_policy)]);
-
-                  }
-                  else{
-                    item_move_valid = true;
-                  return forkJoin([of(valid), of(courses), of(reading_list_object), of(citations), of(mms_id), of(course_code_and_section), of(exists), of(barcode), of(reserves_library), of(reserves_location), of(item_move_valid), of(reading_list_valid), of(reading_list_section), of(add_item_valid), of(moveable), of(complete), of(item_policy)]);
-                  }
-                })
-              )
-            }
-
-            else {
-              //return forkJoin([of(valid), of(userResult), of(userResult1), of(reading_list_id), of(course_id), of(mms_id), of(course_code), of(barcode), of(citation_type), of(reserves_library), of(reserves_location), of(userResult1)]);
-                return forkJoin([of(valid), of(courses), of(reading_list_object), of(citations), of(mms_id), of(course_code_and_section), of(exists), of(barcode), of(reserves_library), of(reserves_location), of(item_move_valid), of(reading_list_valid), of(reading_list_section), of(add_item_valid), of(moveable), of(complete), of(item_policy)]);
-
-            }
-
-
-          }
-            ),
-           
-
-          
-          toArray(),
-         
-        
-          tap(() => this.courseProcessed++),
-          tap(() => this.rLProcessed++)
-        //Collect all results into an array
-          
-        )))
-        
-
-
-        
-        
-          
-         
-
-          
-        
-        .subscribe({
-          
-          next: result => results.push(result),
-          
-          complete: () => {
-            
-            setTimeout(() => {
-              
-              var that = this;
-              let successCount = 0, errorCount = 0, skippedCount = 0; 
-              let updatedItems = new Array();
-              
-              
-              let completedList = new Array();
-              let completedReadingLists: number = 0;
-              let errorSummary = '';
-              let skippedSummary = '';
-            // console.log(JSON.stringify(results))
-              results.forEach(res => {
-               console.log(`${JSON.stringify(res[0][15])}`)
-               
-                let reading_list_section: string = "Resources";
-                    if(res[0][12]){
-
-                      reading_list_section = res[0][12];
-                    }
-               
-                
-                if(res[0][0] != true){
-                  errorCount++;
-                  //errorSummary += `Error for course ${res[0][6]} and MMS ID ${res[0][5]}: ${res[0][1][2].data}\n`
-
-                  errorSummary += `Error for course ${res[0][5]}\n`
-                  this.nonCompletedReadingLists.push(res[0][5]);
-                    
-                }
-
-
-
-                else if (res[0][11] == false){
-                  if (res[0][2].length > 1){
-                    if (res[0][2][1] == "more_than_one_reading_list"){
-                      errorCount++;
-                      errorSummary += `More than one reading list for course ${res[0][5]} and MMS ID ${res[0][4]}\n`
-                      this.nonCompletedReadingLists.push(res[0][5]);
-                    }
-                    else{
-                      errorCount++;
-                      errorSummary += `Error in reading list for course ${res[0][5]} and MMS ID ${res[0][4]} ${res[0][2].message}\n`
-                      this.nonCompletedReadingLists.push(res[0][5]);
-                      }
-
-                  }
-
-                  else{
-                    errorCount++;
-                    errorSummary += `Error in reading list for course ${res[0][5]} and MMS ID ${res[0][4]} ${res[0][2].message}\n`
-                    this.nonCompletedReadingLists.push(res[0][5]);
-                    }
-                }
-
-                if (res[0][2][1] == "more_than_one_reading_list"){
-                  errorCount++;
-                  errorSummary += `More than one reading list for course ${res[0][5]} and MMS ID ${res[0][4]}\n`
-                  this.nonCompletedReadingLists.push(res[0][5]);
-                }
-
-                // else if (res[0][11] == false){
-                //   errorCount++;
-                //   errorSummary += `Error for course ${res[0][5]} and MMS ID ${res[0][4]} ${res[0][2].message}\n`
-
-                  
-                // }
-                else if('error' in res[0][3]){
-
-                  errorCount++;
-                  errorSummary += `Bad MMS ID for course ${res[0][5]} and MMS ID ${res[0][4]} : ${res[0][3].message}\n`
-                  this.nonCompletedReadingLists.push(res[0][5]);
-
-
-                }
-
-                
-
-                else if(res[0][6] == true){
-
-                  skippedCount++;
-                  skippedSummary += `citation already exists for course ${res[0][5]} and MMS ID ${res[0][5]}\n`
-
-
-                }
-  
-                else{
-                  let reading_list_id: string;
-                    let reading_list_name: string;
-                    if ('reading_list' in res[0][2]){
-                      reading_list_id = res[0][2]['reading_list'][0]['id'];
-                      reading_list_name =res[0][2]['reading_list'][0]['name'];
-      
-                      }
-      
-                      else if ('id' in res[0][2]){
-                    reading_list_id = res[0][2]['id'];
-                      reading_list_name = res[0][2]['name'];
-      
-                      }
-                  if (res[0][10] == true){
-                    let policy: string;
-                    if(res[0][16] && res[0][16] != ""){
-                      policy = " and temporary item policy: " + JSON.stringify(res[0][16])
-
-                    }
-
-                    else{
-
-                      policy = ""
-                    }
-
-                    
-                   if (res[0][15] == false){
-
-                      let section: string;
-
-                      if (reading_list_section && reading_list_section != ""){
-
-                        section = ", section: " + JSON.stringify(reading_list_section)
-                      }
-
-                      else{
-
-                        section = ""
-                      }
-
-                    
-                      if (res[0][14] == true){
-                      
-                      updatedItems.push("course code: " + JSON.stringify(res[0][5])  + ", reading list: " + reading_list_name + section + ", MMS ID: " + res[0][4] + `citation: ${JSON.stringify(res[0][3].id)} - Item with barcode ${res[0][7]} sytemically moved to temp location but still needs to be physically moved and is not marked as complete \n`);
-                    successCount++;
-                    this.nonCompletedReadingLists.push(res[0][5]);
-
-                      }
-
-                      else{
-                        updatedItems.push("course code: " + JSON.stringify(res[0][5])  + ", reading list: " + reading_list_name + section + ", MMS ID: " + res[0][4] + `citation: ${JSON.stringify(res[0][3].id)} - Item with barcode ${res[0][7]} on reading list and remains in its current location but is not marked as complete \n`);
-                        successCount++;
-                        this.nonCompletedReadingLists.push(res[0][5]);
-
-                      }
-                    }
-
-                    else{
-
-                      if(res[0][14] == true){
-                    
-                    updatedItems.push("course code: " + JSON.stringify(res[0][5])  + ", reading list: " + reading_list_name + ", section: " + JSON.stringify(reading_list_section) + ", MMS ID: " + res[0][4] + `citation: ${JSON.stringify(res[0][3].id)} - Item with barcode ${res[0][7]} moved to new location \n`);
-                    successCount++;
-
-                      }
-
-                      else{
-                        updatedItems.push("course code: " + JSON.stringify(res[0][5])  + ", reading list: " + reading_list_name + ", section: " + JSON.stringify(reading_list_section) + ", MMS ID: " + res[0][4] + `citation: ${JSON.stringify(res[0][3].id)} - Item with barcode ${res[0][7]} on reading list and remains in its current location \n`);
-                        successCount++;
-
-                      }
-                    }
-
-                  
-
-
-                  }
-
-                  else if (res[0][8] && res[0][9] && res[0][10] == false){
-                    if (res[0][8] != "" && res[0][9] != ""){
-                      errorCount++;
-                      errorSummary += `Error moving physical items for course ${res[0][5]} and MMS ID ${res[0][4]} to library ${res[0][8]} and location ${res[0][9]}\n`
-                      this.nonCompletedReadingLists.push(res[0][5]);
-
-                    }
-
-                    else{
-
-                      
-                      
-                      updatedItems.push("course code: " + JSON.stringify(res[0][5])  + ", reading list: " + reading_list_name + ", section: " + JSON.stringify(reading_list_section)+ ", MMS ID: " + res[0][4] + `citation: ${JSON.stringify(res[0][3].id)}\n`);
-                      successCount++;
-                    }
-
-                  }
-                  else if (res[0][0] != false && res[0][11]!= false && !('error' in res[0][3])){
-                  updatedItems.push("course code: " + JSON.stringify(res[0][5])  + ", reading list: " + reading_list_name + ", section: " + JSON.stringify(res[0][12])+ ", MMS ID: " + res[0][4] + `citation: ${JSON.stringify(res[0][3].id)}\n`);
-                  successCount++;
-                  }
-
-                  else{
-                  errorSummary += `Error for course ${res[0][5]}\n`
-                  this.nonCompletedReadingLists.push(res[0][5]);
-
-                  }
-                }
-                });
-
-
-
-
-                  //   let dataArray = [
-                  //     {1: {course_identifier: "C101", valid: false, reading_list_valid: true, add_item_valid: true, moveable: false, item_move_valid: false}},
-                  //     {2: {course_identifier: "C102", valid: true, reading_list_valid: false, add_item_valid: true, moveable: true, item_move_valid: true}},
-                  //     {3: {course_identifier: "C103", valid: true, reading_list_valid: true, add_item_valid: true, moveable: false, item_move_valid: false}},
-                  //     // more objects...
-                  // ];
-                  
-                  
-    
-                  
-        
-                  this.uniqueNonComplete = this.nonCompletedReadingLists.filter((item, i, ar) => ar.indexOf(item) === i);
-                  
-
-                //  console.log(JSON.stringify(this.uniqueNonComplete));
-                  results.forEach(res => {
-
-                    if (!this.uniqueNonComplete.includes(res[0][5])){
-                    //  console.log("reading list object"); 
-                      //console.log(JSON.stringify(res[0][2]));
-                     // console.log("course valid")
-                     // console.log([0][0]);
-                     // console.log("item exists")
-                     // console.log([0][6]);
-                     // console.log("Add item valid")
-                     // console.log([0][10]);
-                    //  console.log("course code")
-                    //  console.log(res[0][5])
-                    //  console.log("reading list valid")
-                   //   console.log(res[0][11]);
-                    //  console.log("Move item valid")
-                    //  console.log(res[0][13]);
-
-                    let reading_list_id: string;
-                    let reading_list_name: string;
-                    if ('reading_list' in res[0][2]){
-                      reading_list_id = res[0][2]['reading_list'][0]['id'];
-                      reading_list_name =res[0][2]['reading_list'][0]['name'];
-      
-                      }
-      
-                      else if ('id' in res[0][2]){
-                    reading_list_id = res[0][2]['id'];
-                      reading_list_name = res[0][2]['name'];
-      
-                      }
-                    //  console.log(`/courses/${res[0][1].course[0].id}/reading-lists/${res[0][2].reading_list[0].id}`);
-                    //  console.log(this.uniqueCompletedReadingLists)
-                      if (!this.uniqueCompletedReadingLists.includes(`/courses/${res[0][1].course[0].id}/reading-lists/${reading_list_id}`)){
-                        try{
-                     //   console.log(res[0][2]);
-
-                        this.uniqueCompletedReadingLists.push(`/courses/${res[0][1].course[0].id}/reading-lists/${reading_list_id}`)
-                        }catch{
-                       //   let error = "error";
-                        }
-                      }
-                    }
-                  })
-
-               
-        
-                  
-                    
-        
-                    
-        
-                  
-                    //var completeable = new Array()
-                    
-                    //for (var array in this.completeArray){
-        
-        
-                    //}.
-        
-                  //   var invalid_array = this.completeArray.filter(function(e){
-                  //     return (e.valid === false || e.reading_list_valid === false || e.add_item_valid === false ||(e.moveable === true && e.item_move_valid === false))
-                  // })
-        
-                  // var invalid_courses = new Set(invalid_array.map(i => i.course_identifier));
-                 
-                  // var all_courses = new Set(this.completeArray.map(i => i.course_identifier));
-        
-                  // var valid_courses = all_courses.difference(invalid_courses);
-                  // var valid
-                  //   this.completeArray = filter(a => a.type == "ar");
-                  //   this.itemService.completeReadingLists(this.completeArray)
-                  //   return results;
-        
-                  //})
-                
-
-
-                
-                let str1 = `${this.translate.instant("Main.Processed")}: ${this.courseProcessed}\n`;
-                let str2 =  `${this.translate.instant("Main.Updated")}: ${successCount}\n`;
-                let str3 = `Skipped: ${skippedCount}\n`;
-                let str4 = `Errors:\n ${errorSummary}\n`;
-                let str5 = `Skipped: \n${skippedSummary}\n`;
-                let str6 = `${this.translate.instant("Main.ProcessedItems")}:\n ${updatedItems.join(", ")}\n`;
-
-                this.log(`${this.translate.instant("Main.Processed")}: ${this.courseProcessed}`);
-                this.log(`${this.translate.instant("Main.Updated")}: ${successCount}`);
-                this.log(`Number of skipped records: ${skippedCount}`);
-                this.log(`${this.translate.instant("Main.Failed")}: ${errorCount}`+'\n');
-                if(errorSummary){
-                  this.log(`Errors:\n ${errorSummary}`);
-                }
-                if(skippedSummary){
-                  this.log(`Skipped: \n${skippedSummary}`);
-                }
-
-                if(updatedItems){
-                  this.log(`${this.translate.instant("Main.ProcessedItems")}:\n ${updatedItems.join(", ")}`);
-                }
-
-                
-                
-
-                this.completeReadingLists()
-                
-                 
-                
-                
-                this.files= [];
-                
-                
-                //let file = new Blob([str1 + str2 + str3 + str4 + str5 + str6], {type: 'text/plain'});
-               
-                let file = str1 + str2 + str3 + str4 + str5 + str6;
-                //console.log(file);
-                //let file = new File([str1 + str2 + str3 + str4 + str5 + str6 ], "log report.txt", {type: "text/plain;charset=utf-8"});
-                // saveAs(str1 + str2 + str3 + str4 + str5 + str6, 'log.txt');
-                //var blob = new Blob(["Hello, world!"], {type: "text/plain;charset=utf-8"});
-                // FileSaver.saveAs(file);
-
-                // let reader = new FileReader();
-                // let blob = new Blob([str1 + str2 + str3 + str4 + str5 + str6], {type: 'text/plain'});
-                // reader.readAsDataURL(blob);
-                // FileSaver.saveAs(blob)
-                // var a = document.createElement('a');
-                // a.href = file.toDataURL();
-                // a.download = 'screen.png';
-                // a.target='blank';
-                // a.click();   
-
-                // var reader = new FileReader();
-                var blob = new Blob(['Hello world'], {type: 'text/plain'});
-                // // reader.onload = function(e){
-                // //   window.location.href = reader
-                // // }
-                // reader.readAsDataURL(blob);
-                //const file = new Blob(["Hello, file!"], { type: "text/plain" });
-//                 const url = window.URL.createObjectURL(blob);
-
-//                 const fs = require('fs')
- 
-// // Data which will write in a file.
-//                 let data = "Learning how to write in a file."
-                
-//                 // Write data in 'Output.txt' .
-//                 fs.writeFile('Output.txt', file, (err) => {
-                
-//                     // In case of a error throw err.
-//                     if (err) throw err;
-//                 })
-//                 FileSaver.saveAs(fs, "log_report.txt");
-                // // window.URL.revokeObjectURL(url);
-                // var printWindow = window.open();
-            
-                // printWindow.document.open('text/plain');
-                // printWindow.document.write(file);
-                // printWindow.print();
-                // printWindow.document.close();
-                // let myWindow = window.open('/', '_blank', 'noopener');
-                // var link = document.createElement('a');
-                // link.setAttribute('target', '_blank');
-                // link.href = window.URL.createObjectURL(file);
-                // link.click(); 
-
-                // // a.target = '_blank';
-                // a.setAttribute('target', '_blank');
-                // a.href = window.document.createObjectURL(file);
-                // a.click();
-                // var tab = window.open('about:blank', '_blank');
-                //tab.document.write('<p>' + file + '</p>'); // where 'html' is a variable containing your HTML
-                //tab.document.close(); // to finish loading the page
-                //let completedList = new Array();
-               // console.log(JSON.stringify(this.uniqueCompletedReadingLists));
-               
-               
-                
-              }, 500);
-             
-             
-
-        }        })
-
-        
-
-        
-
-
-          
-
-       
-        
-        
-    }
-    fileReader.readAsArrayBuffer(this.files[0]);
-       
-}
-
-completeReadingLists(){
-
-  let results = new Array();
-      
-  from(this.uniqueCompletedReadingLists).pipe(concatMap( url => this.itemService.completeReadingLists(url).pipe(
-    
-  
-  
-  ))).subscribe({
-          
-    next: result => results.push(result),
-    
-    complete: () => {
-      
-      setTimeout(() => {
-
-      results.forEach(res => {
-        this.completedReadingLists++;
-        this.completedList.push(res['code']);
-        //console.log(JSON.stringify(this.completedList));
-        //console.log(JSON.stringify(this.completedReadingLists))
-      })
-        this.log(`${this.translate.instant("Number of Completed Reading Lists")}: ${this.completedReadingLists}`);
-        this.log(`${this.translate.instant("Total Number of Non-Completed Reading Lists")}: ${this.uniqueNonComplete.length}`);
-    if(this.completedList){
-      this.log(`${this.translate.instant("Completed Reading Lists")}:\n ${this.completedList.join(", ")}`);
-    }
-    
-    if (this.uniqueNonComplete){
-      this.log(`${this.translate.instant("Non-Completed Reading Lists")}:\n ${this.uniqueNonComplete.join(", ")}`);
-    }
-    
         this.loading = false;
-    
+      }
+    });
+  }
 
+  print(data: string): void {
+    const file = new Blob([data], { type: 'text/plain' });
+    saveAs(file, 'Log Export.txt');
+  }
 
-      }, 500)
-      
-      
+  private getString(row: SpreadsheetRow, ...keys: string[]): string {
+    for (const key of keys) {
+      if (row[key] !== undefined && row[key] !== null && row[key] !== '') {
+        return String(row[key]).replace(/[\{\}"']/g, '').trim();
+      }
     }
-    
-   
-  })
-     
-     
-    
-}
-      
-
-  
-
-print(data){
-  //console.log(data)
-  let file = new Blob([data], {type: 'text/plain'});
-  saveAs(file, "Log Export.txt");
-
-}
-
-// completeReadingLists(url: any){
-
-//   return this.restService.call(url)
-//     .pipe(catchError(e=> {throw (e)})
-    
-//     ,
-//     switchMap(item => {
-
-//       item['status'] = "Complete";
-//       console.log(JSON.stringify(item));
-//       return this.restService.call( {
-//         url: url,
-//         requestBody: item,
-//         method: HttpMethod.PUT,
-//         headers: {"Content-Type": "application/json"}
-//         })
-
-        
-
-//     }),
-//     catchError(e=>of(this.handleError(e, url, "Error with adding citation to list"))))
-
-
-    
-    
-
-// }
-
-
-
-private handleError(e: RestErrorResponse, item: any, message: String) {
-  const props = item;//'item.barcode ? item.barcode : ['mms_id', 'holding_id', 'item_pid'].map(p=>item[p]).join(', ');
-  if (item) {
-  e.message = message + e.message + ` (${JSON.stringify(props)})`
+    return '';
   }
-  return e;
+
+  private getCourseKey(item: SpreadsheetRow, courseResult?: any): string {
+    if (courseResult?.course?.[0]) {
+      const code = courseResult.course[0].code || '';
+      const section = courseResult.course[0].section || '';
+      return section ? `${code}-${section}` : code;
+    }
+
+    const code = this.getString(item, 'course_code', 'Course Code');
+    const section = this.getString(item, 'course_section', 'Course Section');
+    return section ? `${code}-${section}` : code;
+  }
+
+  private toSafeError(err: any): { message: string; status?: any; statusText?: any; url?: any } {
+    if (err instanceof ProgressEvent) {
+      return { message: 'Browser ProgressEvent error' };
+    }
+
+    return {
+      message:
+        err?.message ||
+        err?.error?.message ||
+        (typeof err?.error === 'string' ? err.error : '') ||
+        'Unknown error',
+      status: err?.status,
+      statusText: err?.statusText,
+      url: err?.url
+    };
   }
 }
-const isRestErrorResponse = (object: any): object is RestErrorResponse => 'error' in object;

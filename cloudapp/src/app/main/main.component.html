@@ -27,7 +27,7 @@
 <!--similar styling to other cloud apps-->
 <h1 >{{ 'Main.CitationLoader' | translate }}</h1>
 <div>
-<ngx-dropzone (change)="onSelect($event)" accept="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel" [multiple]=false>
+<ngx-dropzone #drop (change)="onSelect($event)" accept="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel" [multiple]="false">
   <ngx-dropzone-label translate>Main.DragFile</ngx-dropzone-label>
   <ngx-dropzone-preview *ngFor="let f of files" [removable]="true" (removed)="onRemove(f)">
     <ngx-dropzone-label>{{ f.name }}</ngx-dropzone-label>

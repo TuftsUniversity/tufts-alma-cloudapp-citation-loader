@@ -6,7 +6,7 @@ import {
 } from '@exlibris/exl-cloudapp-angular-lib';
 import { HttpClient } from '@angular/common/http';
 import { of, throwError, forkJoin, Observable } from 'rxjs';
-import { map, concatMap, catchError } from 'rxjs/operators';
+import { map, concatMap, catchError, shareReplay } from 'rxjs/operators';
 
 import { Configuration } from '../models/configuration.model';
 import { CourseResult } from '../models/course_result.model';
@@ -21,6 +21,12 @@ export class LookUpService {
 
   private sruUrl: any;
   private institutionCode = '';
+
+  /**
+   * Cache course lookups so that repeated rows for the same course
+   * do not keep hitting Alma.
+   */
+  private courseLookupCache = new Map<string, Observable<CourseResult[]>>();
 
   constructor(
     private settingsService: CloudAppSettingsService,
@@ -42,40 +48,35 @@ export class LookUpService {
     return this.searchPrimoApi(item);
   }
 
+  clearCourseLookupCache(): void {
+    this.courseLookupCache.clear();
+  }
+
   private searchPrimoApi(row: LookupRow): Observable<any[]> {
     let title = row['Title - Input'] || '';
-    const authorFirst = row['Author First - Input'] || '';
     const authorLast = row['Author Last - Input'] || '';
-    const contributorFirst = row['Contributor First - Input'] || '';
     const contributorLast = row['Contributor Last - Input'] || '';
     const year = encodeURIComponent(row['Year - Input'] || '');
 
     let query = '';
 
+    title = title.replace(/:.+$/, ''); // Remove subtitle
     title = title.replace(/[,:;\."\u201C\u201D\u2018\u2019]/g, '');
     title = title.replace(/&/g, ' ');
     title = title.replace(/\s+/g, ' ').trim().normalize('NFC');
 
     if (title) {
-      query += `alma.title==%22*${encodeURIComponent(title)}*%22`;
+      query += `alma.title=%22*${encodeURIComponent(title)}*%22`;
     } else {
       return this.noResultsResponse(row, 'Title');
     }
 
     if (authorLast) {
-      if (authorFirst) {
-        query += ` AND alma.creator=%22*${encodeURIComponent(authorLast)},${encodeURIComponent(authorFirst)}*%22`;
-      } else {
-        query += ` AND alma.creator=%22*${encodeURIComponent(authorLast)}*%22`;
-      }
+      query += ` AND alma.creator=%22*${encodeURIComponent(authorLast)}*%22`;
     }
 
     if (contributorLast) {
-      if (contributorFirst) {
-        query += ` AND alma.creator=%22*${encodeURIComponent(contributorLast)},${encodeURIComponent(contributorFirst)}*%22`;
-      } else {
-        query += ` AND alma.creator=%22*${encodeURIComponent(contributorLast)}*%22`;
-      }
+      query += ` AND alma.creator=%22*${encodeURIComponent(contributorLast)}*%22`;
     }
 
     if (year) {
@@ -83,7 +84,9 @@ export class LookUpService {
     }
 
     const baseUrl = this.sruUrl.alma.replace(/\/+$/, '');
-    const fullURL = `${baseUrl}/view/sru/${this.institutionCode}?version=1.2&operation=searchRetrieve&recordSchema=marcxml&query=${query}`;
+    const fullURL =
+      `${baseUrl}/view/sru/${this.institutionCode}` +
+      `?version=1.2&operation=searchRetrieve&recordSchema=marcxml&query=${query}`;
 
     console.log('Constructed SRU URL:', fullURL);
 
@@ -96,35 +99,38 @@ export class LookUpService {
           return of([]);
         }
 
-        const courseDataObservables = marcResults.map((marcResult: any) => {
-          return this.getCourseData(row).pipe(
-            concatMap((courseData: CourseResult[]) => {
+        /**
+         * Course lookup happens once per row/course, not once per MARC result.
+         */
+        return this.getCourseDataCached(row).pipe(
+          map((courseData: CourseResult[]) => {
+            if (!courseData.length) {
+              return marcResults;
+            }
+
+            const expanded: any[] = [];
+
+            marcResults.forEach((marcResult: any) => {
               if (courseData.length > 0) {
-                return of(
-                  courseData.map(course => ({
+                courseData.forEach((course: CourseResult) => {
+                  expanded.push({
                     ...marcResult,
-                    'Course Name': course['course_name'],
-                    'Course Code': course['course_code'],
-                    'Course Section': course['course_section'],
-                    'Course Instructor': course['instructors']
-                  }))
-                );
+                    'Course Name': course.course_name,
+                    'Course Code': course.course_code,
+                    'Course Section': course.course_section,
+                    'Course Instructor': course.instructors
+                  });
+                });
+              } else {
+                expanded.push(marcResult);
               }
+            });
 
-              return of([marcResult]);
-            }),
-            catchError(err => {
-              console.error('Error fetching course data:', err);
-              return of([marcResult]);
-            })
-          );
-        });
-
-        return forkJoin(courseDataObservables).pipe(
-          map((results: any[]) => results.reduce((acc, val) => acc.concat(val), [])),
+            return expanded;
+          }),
           catchError(err => {
-            console.error('Error in processing forkJoin:', err);
-            return of([]);
+            console.error('Error fetching cached course data:', err);
+            return of(marcResults);
           })
         );
       }),
@@ -133,6 +139,54 @@ export class LookUpService {
         return throwError(error);
       })
     );
+  }
+
+  private getCourseCacheKey(row: LookupRow): string {
+    const effectiveSettings = this.settings;
+    const useLegacyMapping = effectiveSettings.useLegacyMapping !== false;
+
+    const instructor = row['Instructor Last Name - Input'] || '';
+
+    if (!useLegacyMapping) {
+      const termForMapping = row['Course Term for Mapping - Input'] || '';
+      const yearForMapping = row['Course Year for Mapping - Input'] || '';
+      const course = row['Course Number - Input'] || '';
+
+      return JSON.stringify({
+        mode: 'modern',
+        course,
+        termForMapping,
+        yearForMapping,
+        instructor
+      });
+    }
+
+    const course = row['Course Number - Input'] || '';
+    const courseSemester = row['Course Semester - Input'] || '';
+    const courseYear = row['Course Year - Input'] || '';
+
+    return JSON.stringify({
+      mode: 'legacy',
+      course,
+      courseSemester,
+      courseYear,
+      instructor
+    });
+  }
+
+  private getCourseDataCached(row: LookupRow): Observable<CourseResult[]> {
+    const key = this.getCourseCacheKey(row);
+
+    if (this.courseLookupCache.has(key)) {
+      return this.courseLookupCache.get(key)!;
+    }
+
+    const lookup$ = this.getCourseData(row).pipe(
+      shareReplay(1)
+    );
+
+    this.courseLookupCache.set(key, lookup$);
+    return lookup$;
   }
 
   private noResultsResponse(row: LookupRow, _missingField: string): Observable<any[]> {
@@ -191,7 +245,7 @@ export class LookUpService {
   private extractDates(date008: string): { date1: string | null; date2: string | null } {
     const date1 = date008.slice(7, 11);
     const date2 = date008.slice(11, 15);
-    const isValidYear = (year: string) => /^\d{4}$/.test(year);
+    const isValidYear = (value: string) => /^\d{4}$/.test(value);
 
     return {
       date1: isValidYear(date1) ? date1 : null,
@@ -376,10 +430,6 @@ export class LookUpService {
     const courseSemester = row['Course Semester - Input'] || '';
     const courseYear = row['Course Year - Input'] || '';
     const instructor = row['Instructor Last Name - Input'] || '';
-
-    console.log('getCourseData invoked with row:', JSON.stringify(row));
-    console.log('effectiveSettings:', JSON.stringify(effectiveSettings));
-    console.log('useLegacyMapping:', useLegacyMapping);
 
     if (!useLegacyMapping) {
       if (!termForMapping || !yearForMapping) {

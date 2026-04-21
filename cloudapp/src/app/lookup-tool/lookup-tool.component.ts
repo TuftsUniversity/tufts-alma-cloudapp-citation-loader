@@ -16,6 +16,17 @@ import { Configuration } from '../models/configuration.model';
 
 type LookupRow = Record<string, any>;
 
+interface PasteCourseBlock {
+  courseName: string;
+  instructorLastName: string;
+  courseNumber: string;
+  courseSemester: string;
+  courseYear: string;
+  courseTermForMapping: string;
+  courseYearForMapping: string;
+  citationsText: string;
+}
+
 @Component({
   selector: 'app-lookup-tool',
   templateUrl: './lookup-tool.component.html',
@@ -36,16 +47,9 @@ export class LookupToolComponent implements OnInit {
   inputMode: 'spreadsheet' | 'paste' = 'spreadsheet';
   reviewMode = false;
 
-  pasteForm = {
-    courseName: '',
-    instructorLastName: '',
-    courseNumber: '',
-    courseSemester: '',
-    courseYear: '',
-    courseTermForMapping: '',
-    courseYearForMapping: '',
-    citationsText: ''
-  };
+  pasteBlocks: PasteCourseBlock[] = [
+    this.createEmptyPasteBlock()
+  ];
 
   constructor(
     private lookUpService: LookUpService,
@@ -76,6 +80,32 @@ export class LookupToolComponent implements OnInit {
     });
   }
 
+  private createEmptyPasteBlock(): PasteCourseBlock {
+    return {
+      courseName: '',
+      instructorLastName: '',
+      courseNumber: '',
+      courseSemester: '',
+      courseYear: '',
+      courseTermForMapping: '',
+      courseYearForMapping: '',
+      citationsText: ''
+    };
+  }
+
+  addPasteBlock(): void {
+    this.pasteBlocks.push(this.createEmptyPasteBlock());
+  }
+
+  removePasteBlock(index: number): void {
+    if (this.pasteBlocks.length === 1) {
+      this.pasteBlocks[0] = this.createEmptyPasteBlock();
+      return;
+    }
+
+    this.pasteBlocks.splice(index, 1);
+  }
+
   onSelect(event: { addedFiles: File[] }): void {
     this.files = [...event.addedFiles];
   }
@@ -85,23 +115,31 @@ export class LookupToolComponent implements OnInit {
   }
 
   handlePastedCitations(): void {
-    if (!this.pasteForm.citationsText.trim()) {
+    const activeBlocks = this.pasteBlocks.filter(block => (block.citationsText || '').trim());
+
+    if (!activeBlocks.length) {
       this.alert.error('Please paste at least one citation.');
       return;
     }
 
-    this.parsedCitations = this.citationParserService.parseBlock(
-      this.pasteForm.citationsText,
-      {
-        courseName: this.pasteForm.courseName,
-        instructor: this.pasteForm.instructorLastName,
-        courseNumber: this.pasteForm.courseNumber,
-        courseSemester: this.pasteForm.courseSemester,
-        courseYear: this.pasteForm.courseYear,
-        courseTermForMapping: this.pasteForm.courseTermForMapping,
-        courseYearForMapping: this.pasteForm.courseYearForMapping
-      } as any
-    );
+    this.parsedCitations = [];
+
+    activeBlocks.forEach((block: PasteCourseBlock) => {
+      const parsed = this.citationParserService.parseBlock(
+        block.citationsText,
+        {
+          courseName: block.courseName,
+          instructor: block.instructorLastName,
+          courseNumber: block.courseNumber,
+          courseSemester: block.courseSemester,
+          courseYear: block.courseYear,
+          courseTermForMapping: block.courseTermForMapping,
+          courseYearForMapping: block.courseYearForMapping
+        } as any
+      );
+
+      this.parsedCitations.push(...parsed);
+    });
 
     if (!this.parsedCitations.length) {
       this.alert.error('No citations could be parsed.');
@@ -113,6 +151,16 @@ export class LookupToolComponent implements OnInit {
     const rows: LookupRow[] = this.parsedCitations.map((citation: ParsedCitation) =>
       this.flattenCitation(citation)
     );
+
+    /**
+     * Sort by course so repeated course lookups reuse cache immediately,
+     * similar to the spreadsheet path.
+     */
+    rows.sort((a: LookupRow, b: LookupRow) => {
+      const aKey = this.getCourseSortKey(a);
+      const bKey = this.getCourseSortKey(b);
+      return aKey.localeCompare(bKey);
+    });
 
     this.processRows(rows);
   }
@@ -166,6 +214,12 @@ export class LookupToolComponent implements OnInit {
         return updatedRow;
       });
 
+      items.sort((a: LookupRow, b: LookupRow) => {
+        const aKey = this.getCourseSortKey(a);
+        const bKey = this.getCourseSortKey(b);
+        return aKey.localeCompare(bKey);
+      });
+
       this.processRows(items);
     };
 
@@ -204,6 +258,17 @@ export class LookupToolComponent implements OnInit {
     };
   }
 
+  private getCourseSortKey(row: LookupRow): string {
+    const courseNumber = row['Course Number'] || row['Course Number - Input'] || '';
+    const semester = row['Course Semester'] || row['Course Semester - Input'] || '';
+    const year = row['Course Year'] || row['Course Year - Input'] || '';
+    const instructor = row['Instructor Last Name'] || row['Instructor Last Name - Input'] || '';
+    const termMap = row['Course Term for Mapping'] || row['Course Term for Mapping - Input'] || '';
+    const yearMap = row['Course Year for Mapping'] || row['Course Year for Mapping - Input'] || '';
+
+    return `${courseNumber}|${semester}|${year}|${instructor}|${termMap}|${yearMap}`.toLowerCase();
+  }
+
   processFile(data: ArrayBuffer | string): void {
     const workbook = XLSX.read(data, { type: 'binary' });
     const sheetName = workbook.SheetNames[0];
@@ -222,6 +287,12 @@ export class LookupToolComponent implements OnInit {
       return updatedRow;
     });
 
+    json.sort((a: LookupRow, b: LookupRow) => {
+      const aKey = this.getCourseSortKey(a);
+      const bKey = this.getCourseSortKey(b);
+      return aKey.localeCompare(bKey);
+    });
+
     this.processRows(json);
   }
 
@@ -230,6 +301,12 @@ export class LookupToolComponent implements OnInit {
     const totalCitations = json.length;
     let processedCitations = 0;
     this.loading = true;
+
+    /**
+     * Clear the service cache per run so each upload/paste batch is fresh,
+     * while still reusing course lookups within the run.
+     */
+    this.lookUpService.clearCourseLookupCache();
 
     from(json).pipe(
       concatMap((row: LookupRow): Observable<any> => {

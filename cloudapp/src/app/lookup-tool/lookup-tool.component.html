@@ -33,50 +33,70 @@
   </mat-card>
 
   <div *ngIf="inputMode === 'paste'" class="paste-mode">
-    <mat-form-field appearance="fill" class="full-width">
-      <mat-label>Course Name</mat-label>
-      <input matInput [(ngModel)]="pasteForm.courseName" />
-    </mat-form-field>
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+      <h2 style="margin: 0;">Pasted Course Blocks</h2>
+      <button mat-mini-fab color="primary" type="button" (click)="addPasteBlock()" aria-label="Add course block">
+        +
+      </button>
+    </div>
 
-    <mat-form-field appearance="fill" class="full-width">
-      <mat-label>Instructor Last Name</mat-label>
-      <input matInput [(ngModel)]="pasteForm.instructorLastName" />
-    </mat-form-field>
+    <mat-card *ngFor="let block of pasteBlocks; let i = index" style="margin-bottom: 16px; padding: 12px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+        <strong>Course {{ i + 1 }}</strong>
+        <button
+          mat-stroked-button
+          color="warn"
+          type="button"
+          (click)="removePasteBlock(i)">
+          Remove
+        </button>
+      </div>
 
-    <mat-form-field appearance="fill" class="full-width">
-      <mat-label>Course Number</mat-label>
-      <input matInput [(ngModel)]="pasteForm.courseNumber" />
-    </mat-form-field>
+      <!-- <mat-form-field appearance="fill" class="full-width">
+        <mat-label>Course Name</mat-label>
+        <input matInput [(ngModel)]="block.courseName" />
+      </mat-form-field> -->
 
-    <mat-form-field appearance="fill" class="full-width">
-      <mat-label>Course Semester</mat-label>
-      <input matInput [(ngModel)]="pasteForm.courseSemester" />
-    </mat-form-field>
+      <mat-form-field appearance="fill" class="full-width">
+        <mat-label>Instructor Last Name</mat-label>
+        <input matInput [(ngModel)]="block.instructorLastName" />
+      </mat-form-field>
 
-    <mat-form-field appearance="fill" class="full-width">
-      <mat-label>Course Year</mat-label>
-      <input matInput [(ngModel)]="pasteForm.courseYear" />
-    </mat-form-field>
+      <mat-form-field appearance="fill" class="full-width">
+        <mat-label>Course Number</mat-label>
+        <input matInput [(ngModel)]="block.courseNumber" />
+      </mat-form-field>
 
-    <mat-form-field *ngIf="config && !config.useLegacyMapping" appearance="fill" class="full-width">
-      <mat-label>Course Term for Mapping</mat-label>
-      <input matInput [(ngModel)]="pasteForm.courseTermForMapping" />
-    </mat-form-field>
+      <mat-form-field appearance="fill" class="full-width">
+        <mat-label>Course Semester</mat-label>
+        <input matInput [(ngModel)]="block.courseSemester" />
+      </mat-form-field>
 
-    <mat-form-field *ngIf="config && !config.useLegacyMapping" appearance="fill" class="full-width">
-      <mat-label>Course Year for Mapping</mat-label>
-      <input matInput [(ngModel)]="pasteForm.courseYearForMapping" />
-    </mat-form-field>
+      <!-- <mat-form-field appearance="fill" class="full-width">
+        <mat-label>Course Year</mat-label>
+        <input matInput [(ngModel)]="block.courseYear" />
+      </mat-form-field> -->
 
-    <mat-form-field appearance="fill" class="full-width">
-      <mat-label>Citations</mat-label>
-      <textarea
-        matInput
-        rows="14"
-        placeholder="Paste one citation per line or separate citations by blank lines"
-        [(ngModel)]="pasteForm.citationsText">
-      </textarea>
-    </mat-form-field>
+      <mat-form-field *ngIf="config && !config.useLegacyMapping" appearance="fill" class="full-width">
+        <mat-label>Course Term for Mapping</mat-label>
+        <input matInput [(ngModel)]="block.courseTermForMapping" />
+      </mat-form-field>
+
+      <mat-form-field *ngIf="config && !config.useLegacyMapping" appearance="fill" class="full-width">
+        <mat-label>Course Year for Mapping</mat-label>
+        <input matInput [(ngModel)]="block.courseYearForMapping" />
+      </mat-form-field>
+
+      <mat-form-field appearance="fill" class="full-width">
+        <mat-label>Citations</mat-label>
+        <textarea
+          matInput
+          rows="14"
+          placeholder="Paste one citation per line or separate citations by blank lines"
+          [(ngModel)]="block.citationsText">
+        </textarea>
+      </mat-form-field>
+    </mat-card>
 
     <button mat-flat-button color="primary" (click)="handlePastedCitations()">
       Parse citations and run lookup

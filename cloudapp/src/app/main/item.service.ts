@@ -1,18 +1,29 @@
 import { Injectable } from '@angular/core';
-import { CloudAppRestService, HttpMethod, RestErrorResponse  } from '@exlibris/exl-cloudapp-angular-lib';
-import { of, combineLatest, Observable, Subscription, ObservableInput, Subject, ObservedValueOf,throwError, MonoTypeOperatorFunction, OperatorFunction, from, forkJoin   } from 'rxjs';
-
-import { catchError, switchMap, share, map, mergeMap, concatMap} from 'rxjs/operators';
-import { CloudAppEventsService, AlertService, CloudAppConfigService, EntityType, Request} from '@exlibris/exl-cloudapp-angular-lib';
+import {
+  AlertService,
+  CloudAppRestService,
+  HttpMethod,
+  RestErrorResponse
+} from '@exlibris/exl-cloudapp-angular-lib';
+import { HttpClient } from '@angular/common/http';
+import { Observable, defer, of } from 'rxjs';
+import { catchError, map, switchMap, timeout } from 'rxjs/operators';
 import { TranslateService } from '@ngx-translate/core';
-import { HttpClientModule, HttpClient } from '@angular/common/http';
 
+type SafeError = {
+  error: true;
+  message: string;
+  status?: number;
+  statusText?: string;
+  url?: string;
+  serverError?: string;
+  context?: any;
+};
 
 @Injectable({
   providedIn: 'root'
 })
 export class ItemService {
-
   almaCourse: any;
   almaCourseId: any;
   readingLists: any;
@@ -20,834 +31,485 @@ export class ItemService {
   readingList: any;
   readingListObj: any;
   mms_id: any;
-  previousCourseCode = "0"
+  previousCourseCode = '0';
   readingListId: any;
   selectedReadingList: any;
-  singleList: boolean;
+  singleList = false;
   citation: any;
   almaResult: any;
   original: any;
   item_record_update: any;
   almaReadingList: any;
   result: any;
-  s = new Subject();
-  items: any[];
+  items: any[] = [];
 
   constructor(
     private restService: CloudAppRestService,
     private alert: AlertService,
     private translate: TranslateService,
     private http: HttpClient
+  ) {}
 
-  ) { }
-
-  // operate<In, Out>({ destination, ...subscriberOverrides }: OperateConfig<In, Out>) {
-  //   return new Subscriber(destination, subscriberOverrides);
-  // }
-//   private handleNonError<T, O extends ObservableInput<any>>(
-//     selector: (err: any, caught: Observable<T>) => O
-//   ): OperatorFunction<T, T | ObservedValueOf<O>> {
-//     return (source: Observable<T>) => source.pipe(
-//       mergeMap(response => {
-//           // Perform the custom action for non-error responses
-//           return callback(response);
-//       }),
-//       catchError(error => {
-//           // Forward the error
-//           return throwError(() => error);
-//       })
-//     )
-// }
-
-private handleOtherNonError<T, O extends ObservableInput<any>>(
-  selector: (err: any, caught: Observable<T>) => O
-): OperatorFunction<T, T | ObservedValueOf<O>> {
-  return (source: Observable<T>) =>
-  new Observable<T | ObservedValueOf<O>>((subscriber) => {
-    const subscription = new Subscription();
-
-    subscription.add(source.subscribe({
-      next(value) {
-        subscriber.next(value);
-      },
-      error(err) {
-        let handledResult: Observable<ObservedValueOf<O>>;
-        try {
-          handledResult = from(selector(err, catchError(selector)(source)));
-          subscription.add(handledResult.subscribe(subscriber));
-        } catch (e) {
-          subscriber.error(e);
-        }
-      },
-      complete() {
-        subscriber.complete();
-      }
-    }));
-
-    return () => subscription.unsubscribe();
-  });
-
+private safeRestCall(request: any): Observable<any> {
+  return defer(() => {
+    try {
+      return this.restService.call(request);
+    } catch (err) {
+      return of(this.toSafeError(err, this.describeRequest(request)));
+    }
+  }).pipe(
+    timeout(30000), // 🔥 increase to 30 seconds (or more)
+    catchError((err) =>
+      of(this.toSafeError(err, this.describeRequest(request)))
+    )
+  );
 }
 
-private handleOtherError<T, O extends ObservableInput<any>>(
-  selector: (err: any, caught: Observable<T>) => O
-): OperatorFunction<T, T | ObservedValueOf<O>> {
-  return (source: Observable<T>) =>
-  new Observable<T | ObservedValueOf<O>>((subscriber) => {
-    const subscription = new Subscription();
+  private describeRequest(request: string | { url?: string }): string {
+    if (typeof request === 'string') {
+      return `Request failed for ${request}`;
+    }
 
-    subscription.add(source.subscribe({
-      next(value) {
-        subscriber.next(value);
-      },
-      error(err) {
-        let handledResult: Observable<ObservedValueOf<O>>;
-        try {
-          handledResult = from(selector(err, catchError(selector)(source)));
-          subscription.add(handledResult.subscribe(subscriber));
-        } catch (e) {
-          subscriber.error(e);
-        }
-      },
-      complete() {
-        subscriber.complete();
+    if (request?.url) {
+      return `Request failed for ${request.url}`;
+    }
+
+    return 'Request failed';
+  }
+
+  private toSafeError(err: any, message: string, item?: any): SafeError {
+    const safe: SafeError = {
+      error: true,
+      message
+    };
+
+    if (err instanceof ProgressEvent) {
+      safe.message = `${message}: browser ProgressEvent`;
+      return safe;
+    }
+
+    if (err?.message) {
+      safe.message = `${message}: ${err.message}`;
+    } else if (err?.statusText) {
+      safe.message = `${message}: ${err.statusText}`;
+    }
+
+    if (typeof err?.status === 'number') {
+      safe.status = err.status;
+    }
+
+    if (err?.statusText) {
+      safe.statusText = err.statusText;
+    }
+
+    if (err?.url) {
+      safe.url = err.url;
+    }
+
+    if (typeof err?.error === 'string') {
+      safe.serverError = err.error;
+    } else if (err?.error?.message) {
+      safe.serverError = err.error.message;
+    } else if (err?.error instanceof ProgressEvent) {
+      safe.serverError = 'ProgressEvent';
+    }
+
+    if (item !== undefined) {
+      safe.context = this.toSerializable(item);
+    }
+
+    return safe;
+  }
+
+  private toSerializable(value: any): any {
+    try {
+      return JSON.parse(JSON.stringify(value));
+    } catch {
+      return String(value);
+    }
+  }
+
+  private getString(obj: any, ...keys: string[]): string {
+    for (const key of keys) {
+      if (obj && obj[key] !== undefined && obj[key] !== null && obj[key] !== '') {
+        return String(obj[key]).replace(/[\{\}"']/g, '').trim();
       }
-    }));
-
-    return () => subscription.unsubscribe();
-  });
-
-}
-  processUser(item: any, previousEntry: any, previousCode: any, processed: number) {
-    
-    let course_code:string;
-    let mms_id: string;
-    
-    if ('course_code' in item){
-
-      course_code = item.course_code.replace(/[\{\}"']/g, "");
     }
-
-    else{
-      console.log(`item ${JSON.stringify(item)}`)
-      course_code = item['Course Code'].replace(/[\{\}"']/g, "");
-    }
-
-    
-    
-    
-    if ('mms_id' in item){
-
-      mms_id = item.mms_id
-    }
-
-    else{
-      mms_id = item['MMS ID'].replace(/[\{\}"']/g, "");
-    }
-
-    course_code = course_code.replace(/\s/g, "%2b")
-    course_code = course_code.replace(/%20/g, "%2b")
-    let course_section: string;
-    let course_code_and_section: string;
-    let course_code_and_section_url: string;
-    if ('course_section' in item && item.course_section != ''){
-      course_section = item.course_section;
-      course_section = course_section.replace(/\s/g, "%2b")
-      course_section = course_section.replace(/%20/g, "%2b")
-      course_code_and_section = course_code + "-" + course_section;
-      course_code_and_section_url = `/courses?q=code~${course_code}%20AND%20section~${course_section}`;
-    }
-
-    else if ('Course Section' in item && item['Course Section'] != ''){
-      course_section = item['Course Section'];
-      course_section = course_section.replace(/\s/, "%2b")
-      course_section = course_section.replace(/%20/g, "%2b")
-      course_code_and_section = course_code + "-" + course_section;
-      course_code_and_section_url = `/courses?q=code~${course_code}%20AND%20section~${course_section}`;
-
-    }
-
-    else{
-
-      course_code_and_section_url = `/courses?q=code~${course_code}`;
-    }
-
-
-    //let previous_course_code: string;
-    //let previous_course_section: string;
-    let previous_course_code_and_section: string;
-
-    if (previousEntry.length > 0){
-    //if ('course' in previousEntry[previousEntry.length - 1]){
-     // console.log(`previous course code: ${JSON.stringify(previousEntry[previousEntry.length - 1].course[0]['code'])}`)
-      previous_course_code_and_section = previousCode[previousCode.length - 1]
-      //previous_course_section = previousEntry[previousEntry.length - 1].course[0]['section']
-      //previous_course_code_and_section = previous_course_code + "-" + previous_course_section;
-    //}
-
-    //else{}
+    return '';
   }
 
-  
-    if(processed == 0 || processed > 0 && course_code_and_section != previous_course_code_and_section){
-
-      
-      
-      let url= course_code_and_section_url;
-      console.log(url);
-      return this.restService.call(url).pipe(
-      
-        
-        catchError(e=>{
-            console.log(`Error in course lookup for ${course_code_and_section} `)
-            throw(e);
-          }
-        ),
-        // map(item => {
-        //   if (item.course_code == this.previousCourseCode){
-        //     throw 0
-        //   }
-        //   return item;
-        // }
-        //   ),
-        switchMap(original=>{
-  
-  
-  
-  
-          
-  
-          try {
-  
-          if (original==null) {
-            return this.restService.call({
-              url: '/users',
-              method: HttpMethod.POST,
-              requestBody: item
-            });
-          } else {
-          
-  
-            url= original['link'] ? original['link'].substring(original['link'].indexOf("/almaws/v1/")+10 ): url;
-            return this.restService.call({
-              url: url,
-              method: HttpMethod.GET,
-              // requestBody: original
-            })
-          }
-          }
-
-          catch {
-            console.log(`Error in course lookup for ${course_code_and_section} `)
-            catchError(e=>of(this.handleError(e, item, `Error with course lookup for course source of error ${item.course_code}`)))
-
-          }
-        }))
-
-
-
-      }
-        else{
-      console.log("Successfully skipped\n\n\n\n")
-      const source$ = of(previousEntry[previousEntry.length -1])
-    return source$.pipe(
-      this.handleOtherNonError(response => {
-            console.log("Previous entry in skip")
-            console.log(previousEntry[previousEntry.length -1])
-             // For non-redirects, just pass the original response through
-             return of(response);
-         
-     })
- )
-    }
-    
-    }
-
-
-
-private isRestErrorResponse = (object: any): object is RestErrorResponse => 'error' in object;
-
-private handleError(e: RestErrorResponse, item: any, message: String) {
-  const props = item;//'item.barcode ? item.barcode : ['mms_id', 'holding_id', 'item_pid'].map(p=>item[p]).join(', ');
-  if (item) {
-  e.message = message + e.message + ` (${JSON.stringify(props)})`
-  }
-  return e;
+  private encodeCoursePart(value: string): string {
+    return encodeURIComponent(value).replace(/%20/g, '%2b');
   }
 
-  private handleErrorTooManyReadingLists(e: RestErrorResponse, item: any) {
-    const props = item;//'item.barcode ? item.barcode : ['mms_id', 'holding_id', 'item_pid'].map(p=>item[p]).join(', ');
-    if (item) {
-    e.message = e.message + ` Too many reading lists.   Assignment Ambiguous (${JSON.stringify(props)})`
-    }
-    return e;
-    }
-
-    sendDummyResponse(item){
-
-
-
-      return of(item)
-    }
-isRepeat(listItem: String, lastItem: String, processed){
-
-  if(listItem == lastItem || processed == 0){
-    return of(true);
-  }
-  else{
-    return of(false)
+  private normalizeAlmaLink(link: string): string {
+    const idx = link.indexOf('/almaws/v1/');
+    return idx >= 0 ? link.substring(idx + 10) : link;
   }
 
+  processUser(item: any, previousEntry: any[], previousCode: string[], processed: number): Observable<any> {
+    const courseCodeRaw = this.getString(item, 'course_code', 'Course Code');
+    const courseSectionRaw = this.getString(item, 'course_section', 'Course Section');
+    const courseKey = courseSectionRaw ? `${courseCodeRaw}-${courseSectionRaw}` : courseCodeRaw;
 
-}
-readingListLookup(course: any, course_code: any, course_id: any, previousReadingListCourseCode: any, previousRLEntry: any, processed: number, valid: boolean, pub_status: string, visibility: string) {
- 
-
-    if (valid){
-    
-
-
-     let url = `/courses/${course_id}/reading-lists`
-     
-
-     
-     
-      console.log(url);
-
-      
-
-      console.log(`Course code: ${course_code}`);
-      console.log(`previous reading list course code: ${previousReadingListCourseCode[previousReadingListCourseCode.length -1]}`)
-
-  if(processed == 0 || processed > 0 && course_code != previousReadingListCourseCode[previousReadingListCourseCode.length -1]){
-
-
-    return this.restService.call(url).pipe(
-
-//   catchError(e=>{
-//     console.log(`Error in reading list lookup for ${course[1].course[0]['code']} `)
-//     return(e);
-//   }
-// ),
-  
-
-
-  
-      //     concatMap(reading_lists =>  {
-      //     // try{
-         
-      //       console.log(JSON.stringify(reading_lists));
-      //     return forkJoin([reading_lists, course]).pipe(catchError(e => {throw (e)}))    
-      //     // }
-      // //     catch{
-      // //       console.log(`Error in course lookup for ${courses[0]['code']} `)
-      // //       const source$ = of([{ status: 200, data: courses[0]['code']}, 'error', { status: 200, data: `Course lookup for course ${item.course_code} failed.` }]);
-      // //       return source$.pipe(
-      // //      this.handleOtherError(response => {
-  
-      // //             // For non-redirects, just pass the original response through
-      // //             return of(response);
-              
-      // //     })
-      // // )
-      // //     }
-      //   }
-      //     )
-        
-        concatMap( reading_lists => {
-         // console.log(JSON.stringify(reading_lists));
-       
-          // try{
-            if("error" in reading_lists){
-              catchError(e => {throw(e)})
-            //   console.log(`Error in reading list lookup for ${reading_lists[1]} `)
-            //   const source$ = of([{ status: 200, data: item.course_code}, 'error', { status: 200, data: `Lookup for course ${item.course_code} failed` }, of(item.mms_id), of(item.course_code)]);
-            //   return source$.pipe(
-            //  this.handleOtherError(response => {
-    
-            //         // For non-redirects, just pass the original response through
-            //         return of(response);
-                
-            // })
-            //   )
-  
-            }
-            
-            
-          else if ('reading_list' in reading_lists){
-          if(reading_lists['reading_list'].length == 1){
-            console.log(`1 reading list for course ${course_code} `)
-            
-            return of(reading_lists)
-          }
-
-          else if (reading_lists['reading_list'].length > 1) {
-            console.log(`More than one reading list for ${course_code} `)
-           
-            const source$ = of([{ status: 200, data: reading_lists}, 'more_than_one_reading_list', { status: 200, data: `More than one reading list for course ${course.course[0]['code']}.  Assignment ambiguous` }]);
-            return source$.pipe(
-           this.handleOtherError(response => {
-  
-                  // For non-redirects, just pass the original response through
-                  return of(response);
-              
-          })
-      )
-          }
-
-          else {
-            console.log(`else: reading lists: ${JSON.stringify(reading_lists)}`);
-            return of(reading_lists);
-          }
-        }
-          else if ('link' in reading_lists){
-            console.log(`No existing reading lists for ${course_code}  create one`)
-            console.log(pub_status);
-            console.log(visibility)
-            return this.createList(reading_lists, course, pub_status, visibility)  
-          }
-        // }
-
-        //   catch {
-        //     console.log(`error in reading list process for course ${course[1].course[0]['code']}`);
-        //     catchError(e=>of(this.handleError(e, reading_lists,`Error in chaing of course and reading list lookup for course: ${course[1].course[0]['code']}`)))
-        //   }
-
-      }
-      
-          
-          )//,catchError(e=>of(this.handleError(e, course, `Error in chain of course and reading list lookup for course: ${course[1].course[0]['code']} `)))
-        
-        
-      
-)
-
-
+    const previousCourseKey = previousCode.length ? previousCode[previousCode.length - 1] : '';
+    if (processed > 0 && courseKey === previousCourseKey && previousEntry.length) {
+      return of(previousEntry[previousEntry.length - 1]);
     }
 
-    else{
-      console.log("Successfully skipped\n\n\n\n")
-      const source$ = of(previousRLEntry[previousRLEntry.length -1])
-      console.log(previousRLEntry[previousRLEntry.length -1])
-    return source$.pipe(
-      this.handleOtherNonError(response => {
-            console.log("Previous entry in skip")
-            console.log(previousRLEntry[previousRLEntry.length -1])
-             // For non-redirects, just pass the original response through
-             return of(response);
-         
-     })
- )
-    }
+    const encodedCode = this.encodeCoursePart(courseCodeRaw);
+    const encodedSection = this.encodeCoursePart(courseSectionRaw);
 
-  }
+    const url = encodedSection
+      ? `/courses?q=code~${encodedCode}%20AND%20section~${encodedSection}`
+      : `/courses?q=code~${encodedCode}`;
 
-
-  else{
-    
-    console.log(`Course error for ${course_code}.   reading list null`)
-           
-    const source$ = of([{ status: 200, data: course_code}, 'invalid_course_reading_list_null', { status: 200, data: `invalid_course_reading_list_null for ${course_code}` }]);
-    return source$.pipe(
-   this.handleOtherError(response => {
-
-          // For non-redirects, just pass the original response through
+    return this.safeRestCall(url).pipe(
+      switchMap((response: any) => {
+        if (response?.error) {
           return of(response);
-      
-  })
-)
+        }
 
+        if (response?.course?.length) {
+          return of(response);
+        }
+
+        if (response?.link) {
+          return this.safeRestCall(this.normalizeAlmaLink(response.link));
+        }
+
+        return of({
+          error: true,
+          message: `No course found for ${courseKey}`
+        });
+      }),
+      catchError((err) => of(this.toSafeError(err, `Error in course lookup for ${courseKey}`, item)))
+    );
   }
-}
-   
 
-
-
-
-//   catchError(e=>of(this.handleError(e, id, `Error in reading list lookup for course id: ${id}`))
-
-  
-//   )
-// )
-
-//   }
-
-
-
-
-getReadingList(id: any){
-  let url= `/courses/${id}/reading-lists`;
-
-
-  let readingListUrl = `courses/${this.almaCourseId}/reading-lists`
-  return this.restService.call(readingListUrl).pipe(
-    catchError(e=>{
-        throw(e);
-      }
-    )
-  )
-
-}
-
-  almaCourseLookup(course_code: any) {
-    // this.loading = true;
-    // let request: Request = {
-    //   url: `/courses?code~${course_code}`,
-    //   method: HttpMethod.GET
-    
-
-    
-    return this.restService.call(`/courses?code~${course_code}`)
-    .subscribe(res =>{
-      return this.almaCourseId.map(res => res.course[0]['id']);
-    }
-    )
-    
-  
+  readingListLookup(
+    course: any,
+    courseCode: string,
+    courseId: string,
+    previousReadingListCourseCode: string[],
+    previousRLEntry: any[],
+    processed: number,
+    valid: boolean,
+    pub_status: string,
+    visibility: string
+  ): Observable<any> {
+    if (!valid || !courseId) {
+      return of({
+        error: true,
+        message: `invalid_course_reading_list_null for ${courseCode}`
+      });
     }
 
+    const previousCourseKey = previousReadingListCourseCode.length
+      ? previousReadingListCourseCode[previousReadingListCourseCode.length - 1]
+      : '';
 
+    if (processed > 0 && courseCode === previousCourseKey && previousRLEntry.length) {
+      return of(previousRLEntry[previousRLEntry.length - 1]);
+    }
 
-  createList(reading_list: any, course: any, pub_status: string, visibility: string) {
+    const url = `/courses/${courseId}/reading-lists`;
 
+    return this.safeRestCall(url).pipe(
+      switchMap((readingLists: any) => {
+        if (readingLists?.error) {
+          return of(readingLists);
+        }
 
-    //console.log(JSON.stringify(reading_list))
-          
-  
-    // try {
-    
+        if (readingLists?.reading_list?.length === 1) {
+          return of(readingLists);
+        }
 
-      //console.log(JSON.stringify(course));
+        if (readingLists?.reading_list?.length > 1) {
+          return of({
+            error: true,
+            moreThanOne: true,
+            message: `More than one reading list for ${courseCode}. Assignment ambiguous`,
+            data: readingLists
+          });
+        }
 
-    let readingListObj = `{
-      "code": "${course.course[0]['code']}",
-       "name": "${course.course[0]['name']}",
-      "due_back_date": "${course.course[0]['end_date']}",
-      "status": {
-        "value": "BeingPrepared"
+        return this.createList(course, pub_status, visibility);
+      }),
+      catchError((err) => of(this.toSafeError(err, `Error in reading list lookup for ${courseCode}`, course)))
+    );
+  }
+
+  getReadingList(id: any): Observable<any> {
+    return this.safeRestCall(`/courses/${id}/reading-lists`).pipe(
+      catchError((err) => of(this.toSafeError(err, `Error in reading list lookup for course id: ${id}`, id)))
+    );
+  }
+
+  almaCourseLookup(course_code: any): void {
+    this.safeRestCall(`/courses?code~${course_code}`).subscribe({
+      next: (res: any) => {
+        return this.almaCourseId?.map((_: any) => res?.course?.[0]?.id);
       },
-      "publishingStatus": {
-        "value": "${pub_status}"
-      },
-      "visibility": {
-        "value":"${visibility}"
+      error: (err) => {
+        console.error('almaCourseLookup failed', this.toSafeError(err, 'almaCourseLookup failed'));
       }
-
-    }`;
-    return this.restService.call( {
-      url: `/courses/${course.course[0]['id']}/reading-lists`,
-      method: HttpMethod.POST,
-      headers: {"Content-Type": "application/json"},
-      requestBody: readingListObj
-    }).pipe(
-    catchError(e=>{
-        throw(e);
-      }
-    ),
-     concatMap(original=>{
-       if (original==null) {
-         return this.restService.call( {
-      url: `/courses/${course.course[0]['id']}/reading-lists`,
-      method: HttpMethod.POST,
-      headers: {"Content-Type": "application/json"},
-      requestBody: readingListObj
     });
-       } else{
+  }
 
-        if('id' in original){
-
-          return(of(original));
-
-        }
-        else{
-
-        
-        console.log("error in reading list creation")
-        const source$ = of([{ status: 200, data: course}, 'create_citation_false', { status: 200, data: `reading list creation failed for ${course}` }]);
-        return source$.pipe(
-          this.handleOtherError(response => {
-  
-                  // For non-redirects, just pass the original response through
-                  return of(response);
-              
-          })
-      )
-        }
-      }
-}),
-
-
-    
-    catchError(e=>of(this.handleError(e, course.course[0]['code'], "Error with create list")))
-    
-  )
-    
-    
-
-    
-
-}
-
-    addToList(almaReadingListId: string, almaCourseId: string, mms_id, citation_type: string, reading_list_section: string, complete: boolean) {
-
-      let type: string = "BK";
-      let section: string = "Resources";
-      if (citation_type){
-
-        if (citation_type != ""){
-          type = citation_type;
-        }
-      }
-
-
-      if (reading_list_section){
-
-        if (reading_list_section != ""){
-
-          section = reading_list_section;
-        }
-      }
-
-
-      //console.log(complete)
-      let complete_setting: string;
-      if (complete && complete == true){
-
-        complete_setting = "Complete";
-      }
-
-      else {
-        complete_setting = "BeingPrepared"
-      }
-
-      //console.log(complete_setting)
-
-        
-      
-      this.citation = `{
-        "status": {
-          "value": "${complete_setting}"
-        },
-        "copyrights_status": {
-          "value": "NOTREQUIRED"
-        },
-         "type": {
-           "value": "BK"
-         },
-
-         "secondary_type" : {
-
-          "value": "${type}"
-         },
-        "metadata": {
-          "mms_id": "${mms_id}"
-        },
-        "section_info":{
-          "name": "${section}", "visibility": "true"
-        }
-      }`
-
-
-  
-
-
-      //Add to reading list in Alma
-      return this.restService.call(`/bibs/${mms_id}`).pipe(catchError(e=>{
-        throw(e);
-      }),
-      switchMap(bib => {
-   
-        if ('mms_id' in bib){
-          return this.restService.call( {
-            url: `/courses/${almaCourseId}/reading-lists/${almaReadingListId}/citations`,
-            requestBody: this.citation,
-            method: HttpMethod.POST,
-            headers: {"Content-Type": "application/json"}
-            })
-
-        }
-
-        else{
-          console.log("bad mms id")
-          const source$ = of([{ status: 200, data: mms_id}, 'create_citation_false', { status: 200, data: `Lookup failed for MMS ID ${mms_id}` }]);
-          return source$.pipe(
-            this.handleOtherError(response => {
-    
-                    // For non-redirects, just pass the original response through
-                    return of(response);
-                
-            })
-        )
-        }
-
-        
-       
-
-      }),
-      catchError(e=>of(this.handleError(e, mms_id, "Error with adding citation to list")))
-
-      )
-
-
-      
-        
+  createList(course: any, pub_status: string, visibility: string): Observable<any> {
+    const courseRecord = course?.course?.[0];
+    if (!courseRecord) {
+      return of({
+        error: true,
+        message: 'Cannot create reading list: invalid course object'
+      });
     }
 
-   
+    const readingListObj = {
+      code: courseRecord.code,
+      name: courseRecord.name,
+      due_back_date: courseRecord.end_date,
+      status: { value: 'BeingPrepared' },
+      publishingStatus: { value: pub_status },
+      visibility: { value: visibility }
+    };
 
-getCitations(almaReadingListId, almaCourseId) {
-
-
-  //Add to reading list in Alma
-  return this.restService.call(`/courses/${almaCourseId}/reading-lists/${almaReadingListId}/citations`).pipe(catchError(e=>{
-    throw(e);
-  }),
-  switchMap(citations => {
-  
-      return this.restService.call( {
-        url: `/courses/${almaCourseId}/reading-lists/${almaReadingListId}/citations`,
-        method: HttpMethod.GET,
-        headers: {"Content-Type": "application/json"}
-        })
-
-
-
-    
-   
-
-  }),
-  catchError(e=>of(this.handleError(e, almaReadingListId, "error with getting citations for reading list")))
-
-  )
-
-
-  
-    
-}
-
-
-
-
-
-  getBib (mmsId: string) {
-    return this.restService.call(`/bibs/${mmsId}`)
-      .pipe(catchError(e=> {throw (e)})
-      ,
-      switchMap(bib => {
-
-        if ('bib' in bib){
-
-
+    return this.safeRestCall({
+      url: `/courses/${courseRecord.id}/reading-lists`,
+      method: HttpMethod.POST,
+      headers: { 'Content-Type': 'application/json' },
+      requestBody: JSON.stringify(readingListObj)
+    }).pipe(
+      map((result: any) => {
+        if (result?.id || result?.error) {
+          return result;
         }
 
-        return this.restService.call(`/bibs/${mmsId}`) 
-
-      })
-      ),
-      catchError(e=>of(this.handleError(e, mmsId, "Error with MMS ID look up for " + mmsId)))
-      
-
-     
-
-  }
-
-  updateItem(barcode: string, reserves_library: string, reserves_location: string, item_policy: string){
-
-   // console.log("got into function");
-   
-    return this.restService.call(`/items?item_barcode=${barcode}`)
-    
-    .pipe(catchError(e=>{
-      console.log("error getting item record with barcode: " + barcode);
-
-      throw(e);
-    }),
-    switchMap(item => {
-      // if ('pid' in item['item_data']){
-      let url  = item['link'].replace(/.+?(\/bibs.+)/g, "$1");
-      console.log(url);
-      console.log(JSON.stringify(item));
-
-      if(reserves_library && reserves_location && reserves_library != "" && reserves_location != ""){
-      item['holding_data']['in_temp_location'] = "true";
-      item['holding_data']['temp_library']['value'] = reserves_library;
-      item['holding_data']['temp_location']['value'] = reserves_location;
-      }
-
-      if (item_policy && item_policy != ""){
-
-        item['holding_data']['temp_policy']['value'] = item_policy;
-      }
-      item = JSON.stringify(item)
-      // item = JSON.parse(item);
-      
-      //console.log(JSON.stringify(item));
-      //url= item['link'] ? item['link'].substring(item['link'].indexOf("/almaws/v1/")+10 ): url
-      
-      // if ('pid' in item['item_data']){
-        return this.restService.call( {
-          url: url,
-          requestBody: item,
-          method: HttpMethod.PUT,
-          headers: {"Content-Type": "application/json"}
-          })
-
-      // }
-
-      // else{
-      //   console.log("error with item lookup")
-      //   const source$ = of([{ status: 200, data: barcode}, 'create_citation_false', { status: 200, data: `Lookup failed for MMS ID ${barcode}` }]);
-      //   return source$.pipe(
-      //     this.handleOtherError(response => {
-  
-      //             // For non-redirects, just pass the original response through
-      //             return of(response);
-              
-      //     })
-      // )
-      // }
-
-     
-
-    }),
-    catchError(e=>of(this.handleError(e, barcode, "Error with adding citation to list")))
-
-    )
-
-
-
-  }
-
-  completeReadingLists(url: any){
-
-    return this.restService.call(url)
-      .pipe(catchError(e=> {throw (e)})
-      
-      ,
-      switchMap(item => {
-
-        item["status"]["value"] = "Complete";
-        item["status"]["desc"] = "Complete";
-        //console.log(JSON.stringify(item));
-        return this.restService.call( {
-          url: url,
-          requestBody: item,
-          method: HttpMethod.PUT,
-          headers: {"Content-Type": "application/json"}
-          })
-
-          
-
+        return {
+          error: true,
+          message: `Reading list creation failed for ${courseRecord.code}`
+        };
       }),
-      catchError(e=>of(this.handleError(e, url, "Error with adding citation to list"))))
-
-
+      catchError((err) => of(this.toSafeError(err, 'Error with create list', courseRecord.code)))
+    );
   }
 
- 
+  addToList(
+    almaReadingListId: string,
+    almaCourseId: string,
+    mms_id: string,
+    citation_type: string,
+    reading_list_section: string,
+    complete: boolean
+  ): Observable<any> {
+    const type = citation_type || 'BK';
+    const section = reading_list_section || 'Resources';
+    const completeSetting = complete ? 'Complete' : 'BeingPrepared';
 
-  
+    const citationBody = {
+      status: { value: completeSetting },
+      copyrights_status: { value: 'NOTREQUIRED' },
+      type: { value: 'BK' },
+      secondary_type: { value: type },
+      metadata: { mms_id },
+      section_info: {
+        name: section,
+        visibility: 'true'
+      }
+    };
 
+    return this.safeRestCall(`/bibs/${mms_id}`).pipe(
+      switchMap((bib: any) => {
+        if (bib?.error) {
+          return of(bib);
+        }
 
-  
- }
+        if (bib?.mms_id || bib?.bib) {
+          return this.safeRestCall({
+            url: `/courses/${almaCourseId}/reading-lists/${almaReadingListId}/citations`,
+            method: HttpMethod.POST,
+            headers: { 'Content-Type': 'application/json' },
+            requestBody: JSON.stringify(citationBody)
+          });
+        }
+
+        return of({
+          error: true,
+          message: `Lookup failed for MMS ID ${mms_id}`
+        });
+      }),
+      catchError((err) => of(this.toSafeError(err, 'Error with adding citation to list', mms_id)))
+    );
+  }
+
+  getCitations(almaReadingListId: string, almaCourseId: string): Observable<any> {
+    return this.safeRestCall(`/courses/${almaCourseId}/reading-lists/${almaReadingListId}/citations`).pipe(
+      catchError((err) => of(this.toSafeError(err, 'Error with getting citations for reading list', almaReadingListId)))
+    );
+  }
+
+  getBib(mmsId: string): Observable<any> {
+    return this.safeRestCall(`/bibs/${mmsId}`).pipe(
+      catchError((err) => of(this.toSafeError(err, `Error with MMS ID look up for ${mmsId}`, mmsId)))
+    );
+  }
+
+  updateItem(
+  barcode: string,
+  reserves_library: string,
+  reserves_location: string,
+  item_policy: string
+): Observable<any> {
+  return this.safeRestCall(`/items?item_barcode=${encodeURIComponent(barcode)}`).pipe(
+    switchMap((item: any) => {
+      if (item?.error) {
+        return of(item);
+      }
+
+      if (!item?.link) {
+        return of({
+          error: true,
+          message: `Item lookup failed for barcode ${barcode}`
+        });
+      }
+
+      const relativeUrlMatch = String(item.link).match(/\/bibs\/.+$/);
+      if (!relativeUrlMatch) {
+        return of({
+          error: true,
+          message: `Could not derive Alma item URL from item.link for barcode ${barcode}`,
+          link: item.link
+        });
+      }
+
+      const url = relativeUrlMatch[0];
+
+      item.holding_data = item.holding_data || {};
+
+      if (reserves_library && reserves_location) {
+        item.holding_data.in_temp_location = 'true';
+        item.holding_data.temp_library = item.holding_data.temp_library || {};
+        item.holding_data.temp_location = item.holding_data.temp_location || {};
+        item.holding_data.temp_library.value = reserves_library;
+        item.holding_data.temp_location.value = reserves_location;
+      }
+
+      if (item_policy) {
+        item.holding_data.temp_policy = item.holding_data.temp_policy || {};
+        item.holding_data.temp_policy.value = item_policy;
+      }
+
+      return this.safeRestCall({
+        url,
+        method: HttpMethod.PUT,
+        headers: { 'Content-Type': 'application/json' },
+        requestBody: JSON.stringify(item)
+      });
+    })
+  );
+}
+
+  completeReadingLists(url: string): Observable<any> {
+    return this.safeRestCall(url).pipe(
+      switchMap((item: any) => {
+        if (!item || item.error) {
+          return of(item);
+        }
+
+        item.status = item.status || {};
+        item.status.value = 'Complete';
+        item.status.desc = 'Complete';
+
+        return this.safeRestCall({
+          url,
+          method: HttpMethod.PUT,
+          headers: { 'Content-Type': 'application/json' },
+          requestBody: item
+        });
+      }),
+      catchError((err) => of(this.toSafeError(err, 'Error with completing reading list', url)))
+    );
+  }
+
+  sendDummyResponse(item: any): Observable<any> {
+    return of(item);
+  }
+
+  isRepeat(listItem: string, lastItem: string, processed: number): Observable<boolean> {
+    return of(listItem === lastItem || processed === 0);
+  }
+
+  extractCitationMmsIds(citations: any): string[] {
+    const ids: string[] = [];
+
+    if (Array.isArray(citations?.citation)) {
+      citations.citation.forEach((citation: any) => {
+        const mmsId = citation?.metadata?.mms_id;
+        if (mmsId) {
+          ids.push(mmsId);
+        }
+      });
+    }
+
+    return ids;
+  }
+
+  extractReadingListMeta(readingListResult: any): {
+    valid: boolean;
+    id: string;
+    name: string;
+    errorMessage: string;
+  } {
+    if (!readingListResult) {
+      return {
+        valid: false,
+        id: '',
+        name: '',
+        errorMessage: 'Reading list result is empty'
+      };
+    }
+
+    if (readingListResult?.error) {
+      return {
+        valid: false,
+        id: '',
+        name: '',
+        errorMessage: readingListResult.message || 'Reading list error'
+      };
+    }
+
+    if (readingListResult?.reading_list?.[0]) {
+      return {
+        valid: true,
+        id: readingListResult.reading_list[0].id || '',
+        name: readingListResult.reading_list[0].name || '',
+        errorMessage: ''
+      };
+    }
+
+    if (readingListResult?.id) {
+      return {
+        valid: true,
+        id: readingListResult.id || '',
+        name: readingListResult.name || '',
+        errorMessage: ''
+      };
+    }
+
+    return {
+      valid: false,
+      id: '',
+      name: '',
+      errorMessage: 'Unable to parse reading list response'
+    };
+  }
+
+  private handleError(e: RestErrorResponse, item: any, message: String): any {
+    return this.toSafeError(e, String(message), item);
+  }
+
+  private handleErrorTooManyReadingLists(e: RestErrorResponse, item: any): any {
+    return this.toSafeError(e, 'Too many reading lists. Assignment Ambiguous', item);
+  }
+}

@@ -1,44 +1,56 @@
 import { Injectable } from '@angular/core';
-
 import {
   ParsedCitation,
   ParsedCreator,
   ParsedCitationType
 } from '../models/parsed-citation.model';
+
 @Injectable({
   providedIn: 'root'
 })
 export class CitationParserService {
   parseBlock(text: string, context: Partial<ParsedCitation>): ParsedCitation[] {
     const entries = this.splitEntries(text);
-    return entries.map(entry => this.parseEntry(entry, context));
+
+    return entries
+      .filter(entry => !this.isLikelyCallNumber(entry))
+      .map(entry => this.parseEntry(entry, context))
+      .filter(entry => !!entry.title || !!entry.creators.length || !!entry.year);
   }
 
   splitEntries(text: string): string[] {
     const normalized = (text || '').replace(/\r\n/g, '\n').trim();
-    if (!normalized) return [];
+    if (!normalized) {
+      return [];
+    }
 
-    if (/\n\s*\n/.test(normalized)) {
-      return normalized
-        .split(/\n\s*\n/g)
+    // First split on blank lines.
+    let entries = normalized
+      .split(/\n\s*\n/g)
+      .map(x => this.cleanWhitespace(x))
+      .filter(Boolean);
+
+    // If there were no blank-line separations, treat each line as an entry.
+    if (entries.length <= 1) {
+      entries = normalized
+        .split('\n')
+        .map(x => x.replace(/^\s*(\[\d+\]|\d+\.)\s*/, ''))
         .map(x => this.cleanWhitespace(x))
         .filter(Boolean);
     }
 
-    return normalized
-      .split('\n')
-      .map(x => x.replace(/^\s*(\[\d+\]|\d+\.)\s*/, ''))
-      .map(x => this.cleanWhitespace(x))
-      .filter(Boolean);
+    return entries;
   }
 
   parseEntry(raw: string, context: Partial<ParsedCitation>): ParsedCitation {
-    const creators = this.extractCreators(raw);
-    const year = this.extractYear(raw);
-    const title = this.extractTitle(raw, creators, year);
-    const containerTitle = this.extractContainerTitle(raw, title);
-    const publisher = this.extractPublisher(raw, title, containerTitle);
-    const type = this.inferType(raw, title, containerTitle);
+    const cleaned = this.stripTrailingCallNumber(this.cleanWhitespace(raw));
+    const creators = this.extractCreators(cleaned);
+    const year = this.extractYear(cleaned);
+    const title = this.extractTitle(cleaned, creators, year);
+    const containerTitle = this.extractContainerTitle(cleaned, title);
+    const publisher = this.extractPublisher(cleaned, title, containerTitle);
+    const publicationPlace = this.extractPublicationPlace(cleaned);
+    const type = this.inferType(cleaned, title, containerTitle);
 
     return {
       raw,
@@ -46,18 +58,18 @@ export class CitationParserService {
       title,
       containerTitle,
       publisher,
-      publicationPlace: '',
+      publicationPlace,
       year,
-      volume: this.extractVolume(raw),
-      issue: this.extractIssue(raw),
-      pages: this.extractPages(raw),
+      volume: this.extractVolume(cleaned),
+      issue: this.extractIssue(cleaned),
+      pages: this.extractPages(cleaned),
       edition: '',
-      doi: this.extractDoi(raw),
-      isbn: this.extractIsbn(raw),
-      issn: this.extractIssn(raw),
-      url: this.extractUrl(raw),
+      doi: this.extractDoi(cleaned),
+      isbn: this.extractIsbn(cleaned),
+      issn: this.extractIssn(cleaned),
+      url: this.extractUrl(cleaned),
       creators,
-      parseWarnings: this.buildWarnings(raw, creators, title, year),
+      parseWarnings: this.buildWarnings(cleaned, creators, title, year),
       confidence: null,
       courseName: context.courseName || '',
       instructor: context.instructor || '',
@@ -68,213 +80,349 @@ export class CitationParserService {
     };
   }
 
-private extractYear(raw: string): string {
-  const cleaned = this.stripTrailingCallNumber(this.cleanWhitespace(raw));
-  const match = cleaned.match(/\b([1-2]\d{3})\b/);
-  return match ? match[1] : '';
-}
+  private cleanWhitespace(value: string): string {
+    return (value || '').replace(/\s+/g, ' ').trim();
+  }
 
-    private getYearTokenMatch(raw: string): RegExpMatchArray | null {
-    return raw.match(/\(?\b\d{4}\b\)?\.?/);
+  private escapeRegExp(value: string): string {
+    return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  }
+
+  private isLikelyCallNumber(raw: string): boolean {
+    const cleaned = this.cleanWhitespace(raw);
+
+    // LC call-number-ish lines:
+    // HT166 .G438 2010
+    // PN1998.3.H36875 A3 2017
+    // JC179.M753 B54 2016
+    // E184.A75 L86 2017
+    return /^[A-Z]{1,3}\d+(?:\.\d+)?(?:\s+[A-Z0-9.]+)+(?:\s+\d{4})?$/u.test(cleaned);
+  }
+
+  private stripTrailingCallNumber(raw: string): string {
+    return raw
+      .replace(/\.\s*[A-Z]{1,3}\d+(?:\.\d+)?(?:\s+[A-Z0-9.]+)+(?:\s+\d{4})?\s*$/u, '.')
+      .replace(/\s+[A-Z]{1,3}\d+(?:\.\d+)?(?:\s+[A-Z0-9.]+)+(?:\s+\d{4})?\s*$/u, '')
+      .trim();
+  }
+
+  private splitAuthorYearParenCitation(raw: string): { creatorPart: string; year: string; rest: string } | null {
+    const cleaned = this.cleanWhitespace(raw);
+    const match = cleaned.match(/^(.+?)\s*\((\d{4})\)[,\.]?\s*(.+)$/u);
+
+    if (!match) {
+      return null;
     }
-    private cleanWhitespace(value: string): string {
-        return value.replace(/\s+/g, ' ').trim();
+
+    return {
+      creatorPart: match[1].trim().replace(/[,;:\s]+$/u, ''),
+      year: match[2],
+      rest: match[3].trim()
+    };
+  }
+
+  private splitAuthorDateCitation(raw: string): { creatorPart: string; year: string; rest: string } | null {
+    const cleaned = this.cleanWhitespace(raw);
+
+    // Chicago-ish:
+    // Gehl, Jan. 2010. Cities for people. Washington, DC: Island Press.
+    // Harris, Brandon. 2017. Making rent in Bed-Stuy. New York: Harper-Collins.
+    const match = cleaned.match(/^(.+?)\.\s+([1-2]\d{3})\.\s+(.+)$/u);
+
+    if (!match) {
+      return null;
     }
 
-  private extractCreators(raw: string): ParsedCreator[] {
-  const cleaned = this.stripTrailingCallNumber(this.cleanWhitespace(raw));
-  const pubBlock = this.getPublicationBlock(cleaned);
-
-  let prefix = pubBlock ? pubBlock.prefix : cleaned;
-
-  // For book-list style citations, creators usually come before the first title comma.
-  // We also want to preserve markers like "(eds.)" or "trans." if they are attached to creators.
-  const firstTitleComma = prefix.indexOf(',');
-  if (firstTitleComma >= 0) {
-    prefix = prefix.slice(0, firstTitleComma).trim();
+    return {
+      creatorPart: match[1].trim(),
+      year: match[2],
+      rest: match[3].trim()
+    };
   }
 
-  let role: ParsedCreator['role'] = 'author';
+  private getPublicationBlock(raw: string): { prefix: string; parenContent: string } | null {
+    const cleaned = this.stripTrailingCallNumber(this.cleanWhitespace(raw));
+    const match = cleaned.match(/^(.*?)(\(([^()]*(?:\d{4})[^()]*)\))\.?$/u);
 
-  if (/\b(?:eds?\.?|edited by)\b/i.test(cleaned) || /\((?:eds?\.?)\)/i.test(cleaned)) {
-    role = 'editor';
-  } else if (/\b(?:trans\.?|translated by)\b/i.test(cleaned)) {
-    role = 'translator';
-  } else if (/\b(?:dir\.?|directed by)\b/i.test(cleaned)) {
-    role = 'director';
+    if (!match) {
+      return null;
+    }
+
+    return {
+      prefix: match[1].trim().replace(/[,;:\s]+$/u, ''),
+      parenContent: match[3].trim()
+    };
   }
 
-  prefix = prefix
-    .replace(/^\s*(edited by|translated by|directed by)\s+/i, '')
-    .replace(/\((?:eds?\.?|trans\.?|dir\.?)\)/gi, '')
-    .replace(/\b(?:eds?\.?|trans\.?|dir\.)\b\.?/gi, '')
-    .replace(/\bet al\.?\b/gi, '')
-    .trim();
+  private parseCreatorString(
+    creatorText: string,
+    role: ParsedCreator['role']
+  ): ParsedCreator[] {
+    let working = this.cleanWhitespace(creatorText)
+      .replace(/^\s*(edited by|translated by|directed by)\s+/i, '')
+      .replace(/\((?:eds?\.?|trans\.?|dir\.?)\)/gi, '')
+      .replace(/\b(?:eds?\.?|trans\.?|dir\.)\b\.?/gi, '')
+      .replace(/\bet al\.?\b/gi, '')
+      .trim();
 
-  if (!prefix) {
-    return [];
-  }
+    if (!working) {
+      return [];
+    }
 
-  const normalized = prefix
-    .replace(/\s+and\s+/gi, '; ')
-    .replace(/\s*&\s*/g, '; ')
-    .replace(/\s*;\s*/g, '; ');
+    working = working
+      .replace(/\s+and\s+/gi, '; ')
+      .replace(/\s*&\s*/g, '; ')
+      .replace(/\s*;\s*/g, '; ');
 
-  const parts = normalized.split(';').map(x => x.trim()).filter(Boolean);
+    const parts = working.split(';').map(x => x.trim()).filter(Boolean);
 
-  return parts.map((name): ParsedCreator => {
-    const tokens = name.split(/\s+/).filter(Boolean);
+    return parts.map((name): ParsedCreator => {
+      // Last, First
+      if (name.includes(',')) {
+        const bits = name.split(',').map(x => x.trim()).filter(Boolean);
+        return {
+          family: bits[0] || '',
+          given: bits.slice(1).join(' '),
+          role
+        };
+      }
 
-    if (tokens.length === 1) {
+      // First Last
+      const tokens = name.split(/\s+/).filter(Boolean);
+
+      if (tokens.length === 1) {
+        return {
+          family: tokens[0],
+          given: '',
+          role
+        };
+      }
+
       return {
-        family: tokens[0],
-        given: '',
+        family: tokens[tokens.length - 1],
+        given: tokens.slice(0, -1).join(' '),
         role
+      };
+    });
+  }
+
+  private splitBookListPrefix(raw: string): { creatorPart: string; titlePart: string } {
+    const cleaned = this.stripTrailingCallNumber(this.cleanWhitespace(raw));
+    const pubBlock = this.getPublicationBlock(cleaned);
+    const prefix = pubBlock ? pubBlock.prefix : cleaned;
+
+    // Case: "... , eds., Title"
+    const roleSplit = prefix.match(/^(.*?\b(?:eds?\.?|trans\.?|dir\.?)\b\.?),\s*(.+)$/i);
+    if (roleSplit) {
+      return {
+        creatorPart: roleSplit[1].trim(),
+        titlePart: roleSplit[2].trim()
+      };
+    }
+
+    // Split on the first comma for book-list style:
+    // "August Reinisch, Advanced Introduction ..."
+    const idx = prefix.indexOf(',');
+    if (idx >= 0) {
+      return {
+        creatorPart: prefix.slice(0, idx).trim(),
+        titlePart: prefix.slice(idx + 1).trim()
       };
     }
 
     return {
-      family: tokens[tokens.length - 1],
-      given: tokens.slice(0, -1).join(' '),
-      role
-    };
-  });
-}
-private splitPrefixIntoCreatorsAndTitle(raw: string): { creatorPart: string; titlePart: string } {
-  const cleaned = this.stripTrailingCallNumber(this.cleanWhitespace(raw));
-  const pubBlock = this.getPublicationBlock(cleaned);
-  const prefix = pubBlock ? pubBlock.prefix : cleaned;
-
-  // Case: "... , eds., Title"
-  const roleSplit = prefix.match(/^(.*?\b(?:eds?\.?|trans\.?|dir\.?)\b\.?),\s*(.+)$/i);
-  if (roleSplit) {
-    return {
-      creatorPart: roleSplit[1].trim(),
-      titlePart: roleSplit[2].trim()
+      creatorPart: '',
+      titlePart: prefix.trim()
     };
   }
 
-  // Otherwise split on the first comma followed by what looks like a title
-  const idx = prefix.indexOf(',');
-  if (idx >= 0) {
-    return {
-      creatorPart: prefix.slice(0, idx).trim(),
-      titlePart: prefix.slice(idx + 1).trim()
-    };
-  }
+  private extractYear(raw: string): string {
+    const cleaned = this.stripTrailingCallNumber(this.cleanWhitespace(raw));
 
-  return {
-    creatorPart: '',
-    titlePart: prefix.trim()
-  };
-}
-private stripTrailingCallNumber(raw: string): string {
-  return raw
-    .replace(/\)\.\s*[A-Z]{1,3}\s*[A-Z0-9.\- ]+(?:\s+\d{4})?\s*$/u, ').')
-    .replace(/\)\s*[A-Z]{1,3}\s*[A-Z0-9.\- ]+(?:\s+\d{4})?\s*$/u, ')')
-    .trim();
-}
-
-private getPublicationBlock(raw: string): { prefix: string; parenContent: string } | null {
-  const cleaned = this.stripTrailingCallNumber(this.cleanWhitespace(raw));
-  const match = cleaned.match(/^(.*?)(\(([^()]*(?:\d{4})[^()]*)\))\.?$/);
-
-  if (!match) {
-    return null;
-  }
-
-  return {
-    prefix: match[1].trim().replace(/[,;:\s]+$/, ''),
-    parenContent: match[3].trim()
-  };
-}
-private extractTitle(raw: string, creators: ParsedCreator[], year: string): string {
-  const cleaned = this.stripTrailingCallNumber(this.cleanWhitespace(raw));
-  const parts = this.splitPrefixIntoCreatorsAndTitle(cleaned);
-
-  let title = parts.titlePart || '';
-
-  // Remove dangling creator-role fragments at the start if still present
-  title = title
-    .replace(/^\(?\b(?:eds?\.?|trans\.?|dir\.?)\b\)?\.?,?\s*/i, '')
-    .replace(/^["“]/, '')
-    .replace(/["”]$/, '')
-    .trim();
-
-  return title;
-}
-
-private extractContainerTitle(raw: string, title: string): string {
-  let working = this.cleanWhitespace(raw);
-
-  if (!working || !title) {
-    return '';
-  }
-
-  const quotedTitle = new RegExp(`["“]${this.escapeRegExp(title)}["”]`);
-  if (quotedTitle.test(working)) {
-    working = working.replace(quotedTitle, '').trim();
-  } else {
-    const titleIndex = working.indexOf(title);
-    if (titleIndex >= 0) {
-      working = working.slice(titleIndex + title.length).trim();
+    const parenSplit = this.splitAuthorYearParenCitation(cleaned);
+    if (parenSplit) {
+      return parenSplit.year;
     }
+
+    const authorDateSplit = this.splitAuthorDateCitation(cleaned);
+    if (authorDateSplit) {
+      return authorDateSplit.year;
+    }
+
+    const pubBlock = this.getPublicationBlock(cleaned);
+    if (pubBlock) {
+      const pubYear = pubBlock.parenContent.match(/\b([1-2]\d{3})\b/u);
+      if (pubYear) {
+        return pubYear[1];
+      }
+    }
+
+    const match = cleaned.match(/\b([1-2]\d{3})\b/u);
+    return match ? match[1] : '';
   }
 
-  working = working.replace(/^[:;.,)\]\s-]+/, '').trim();
+  private extractCreators(raw: string): ParsedCreator[] {
+    const cleaned = this.stripTrailingCallNumber(this.cleanWhitespace(raw));
 
-  // "In Container Title"
-  const inMatch = working.match(/\bIn\s+([^.,]+(?:\.[^.,]+)*)/i);
-  if (inMatch) {
-    return inMatch[1].trim();
+    const parenSplit = this.splitAuthorYearParenCitation(cleaned);
+    if (parenSplit) {
+      return this.parseCreatorString(parenSplit.creatorPart, 'author');
+    }
+
+    const authorDateSplit = this.splitAuthorDateCitation(cleaned);
+    if (authorDateSplit) {
+      return this.parseCreatorString(authorDateSplit.creatorPart, 'author');
+    }
+
+    const bookSplit = this.splitBookListPrefix(cleaned);
+
+    let role: ParsedCreator['role'] = 'author';
+    if (/\b(?:eds?\.?|edited by)\b/i.test(bookSplit.creatorPart) || /\((?:eds?\.?)\)/i.test(bookSplit.creatorPart)) {
+      role = 'editor';
+    } else if (/\b(?:trans\.?|translated by)\b/i.test(bookSplit.creatorPart)) {
+      role = 'translator';
+    } else if (/\b(?:dir\.?|directed by)\b/i.test(bookSplit.creatorPart)) {
+      role = 'director';
+    }
+
+    return this.parseCreatorString(bookSplit.creatorPart, role);
   }
 
-  // Journal-like chunk before vol/no/pages
-  const journalMatch = working.match(/^([^.,]+?)(?=,?\s*(?:vol\.?|no\.?|issue|pp?\.?|doi\b|\d+\s*\())/i);
-  if (journalMatch) {
-    return journalMatch[1].trim();
+  private extractTitle(raw: string, _creators: ParsedCreator[], _year: string): string {
+    const cleaned = this.stripTrailingCallNumber(this.cleanWhitespace(raw));
+
+    const parenSplit = this.splitAuthorYearParenCitation(cleaned);
+    if (parenSplit) {
+      return parenSplit.rest
+        .replace(/,\s*chs?\b.*$/i, '')
+        .replace(/,\s*\(pp[,.\s0-9\-–]+\)\.?$/i, '')
+        .replace(/\s*\(pp[,.\s0-9\-–]+\)\.?$/i, '')
+        .replace(/\.$/, '')
+        .trim();
+    }
+
+    const authorDateSplit = this.splitAuthorDateCitation(cleaned);
+    if (authorDateSplit) {
+      // For Chicago author-date book citations:
+      // Title. Place: Publisher.
+      const rest = authorDateSplit.rest;
+
+      const match = rest.match(/^(.*?)(?:\.\s+[^.:]+:\s+.+)?\.?$/u);
+      if (match && match[1]) {
+        return match[1].trim().replace(/\.$/, '');
+      }
+
+      return rest.replace(/\.$/, '').trim();
+    }
+
+    const bookSplit = this.splitBookListPrefix(cleaned);
+    let title = bookSplit.titlePart || '';
+
+    title = title
+      .replace(/^\(?\b(?:eds?\.?|trans\.?|dir\.?)\b\)?\.?,?\s*/i, '')
+      .replace(/^["“]/, '')
+      .replace(/["”]$/, '')
+      .replace(/\.$/, '')
+      .trim();
+
+    return title;
   }
 
-  return '';
-}
+  private extractContainerTitle(raw: string, title: string): string {
+    let working = this.cleanWhitespace(raw);
 
-private extractPublisher(raw: string, title: string, containerTitle: string): string {
-  const cleaned = this.stripTrailingCallNumber(this.cleanWhitespace(raw));
-  const pubBlock = this.getPublicationBlock(cleaned);
+    if (!working || !title) {
+      return '';
+    }
 
-  if (!pubBlock) {
+    const quotedTitle = new RegExp(`["“]${this.escapeRegExp(title)}["”]`);
+    if (quotedTitle.test(working)) {
+      working = working.replace(quotedTitle, '').trim();
+    } else {
+      const titleIndex = working.indexOf(title);
+      if (titleIndex >= 0) {
+        working = working.slice(titleIndex + title.length).trim();
+      }
+    }
+
+    working = working.replace(/^[:;.,)\]\s-]+/, '').trim();
+
+    const inMatch = working.match(/\bIn\s+([^.,]+(?:\.[^.,]+)*)/i);
+    if (inMatch) {
+      return inMatch[1].trim();
+    }
+
+    const journalMatch = working.match(/^([^.,]+?)(?=,?\s*(?:vol\.?|no\.?|issue|pp?\.?|doi\b|\d+\s*\())/i);
+    if (journalMatch) {
+      return journalMatch[1].trim();
+    }
+
     return '';
   }
 
-  const content = pubBlock.parenContent;
+  private extractPublisher(raw: string, title: string, _containerTitle: string): string {
+    const cleaned = this.stripTrailingCallNumber(this.cleanWhitespace(raw));
 
-  // "Place: Publisher, Year"
-  const colonMatch = content.match(/^[^:]+:\s*(.+?)(?:,\s*[1-2]\d{3})$/);
-  if (colonMatch) {
-    return colonMatch[1].trim();
+    // Parenthetical book-list publication block
+    const pubBlock = this.getPublicationBlock(cleaned);
+    if (pubBlock) {
+      const content = pubBlock.parenContent;
+
+      const colonMatch = content.match(/^[^:]+:\s*(.+?)(?:,\s*[1-2]\d{3})$/u);
+      if (colonMatch) {
+        return colonMatch[1].trim();
+      }
+
+      const simpleMatch = content.match(/^(.+?)\s+([1-2]\d{3})$/u);
+      if (simpleMatch) {
+        return simpleMatch[1].trim();
+      }
+
+      return content.replace(/\b[1-2]\d{3}\b/gu, '').replace(/[,:]\s*$/, '').trim();
+    }
+
+    // Chicago author-date book citation:
+    // Author. Year. Title. Place: Publisher.
+    const authorDateSplit = this.splitAuthorDateCitation(cleaned);
+    if (authorDateSplit) {
+      const afterTitle = authorDateSplit.rest;
+      const pubMatch = afterTitle.match(/\.\s+([^.:]+):\s+(.+?)\.?$/u);
+      if (pubMatch) {
+        return pubMatch[2].trim().replace(/\.$/, '');
+      }
+    }
+
+    return '';
   }
 
-  // "Publisher Year"
-  const simpleMatch = content.match(/^(.+?)\s+([1-2]\d{3})$/);
-  if (simpleMatch) {
-    return simpleMatch[1].trim();
+  private extractPublicationPlace(raw: string): string {
+    const cleaned = this.stripTrailingCallNumber(this.cleanWhitespace(raw));
+
+    const pubBlock = this.getPublicationBlock(cleaned);
+    if (pubBlock) {
+      const match = pubBlock.parenContent.match(/^([^:]+):/u);
+      return match ? match[1].trim() : '';
+    }
+
+    const authorDateSplit = this.splitAuthorDateCitation(cleaned);
+    if (authorDateSplit) {
+      const pubMatch = authorDateSplit.rest.match(/\.\s+([^.:]+):\s+(.+?)\.?$/u);
+      if (pubMatch) {
+        return pubMatch[1].trim();
+      }
+    }
+
+    return '';
   }
 
-  return content.replace(/\b[1-2]\d{3}\b/g, '').replace(/[,:]\s*$/, '').trim();
-}
-
-private escapeRegExp(value: string): string {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
-
-  private inferType(raw: string, title: string, containerTitle: string): ParsedCitationType {
+  private inferType(raw: string, _title: string, _containerTitle: string): ParsedCitationType {
     const value = raw.toLowerCase();
 
     if (/\bdoi\b|\bvol\.?\b|\bno\.?\b|\bissue\b|\bpp?\.?\b/.test(value)) return 'article';
-    if (/\bin: /i.test(raw)) return 'chapter';
-    if (/\bisbn\b|\bpress\b|\bpublisher\b/.test(value)) return 'book';
+    if (/\bin:\s/i.test(raw)) return 'chapter';
     if (/\bdvd\b|\bfilm\b|\bstreaming\b|\bdirected by\b/.test(value)) return 'video';
     if (/https?:\/\//.test(raw)) return 'webpage';
+    if (/\bpress\b|\bpublisher\b|:\s+[^.]+$|\(\s*[^)]*\d{4}\s*\)/i.test(raw)) return 'book';
 
     return 'unknown';
   }
